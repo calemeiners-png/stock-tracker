@@ -434,13 +434,26 @@ def get_market():
 
 @app.get("/week52")
 def week52():
-    """
-    Scan for stocks near or at 52-week highs or lows.
-    Near high = within 5% of 52-week high
-    Near low = within 5% of 52-week low
-    """
     results_high = []
     results_low = []
+
+    # Use focused list for speed
+    WEEK52_LIST = [
+        "SPY", "QQQ", "DIA", "IWM", "ARKK",
+        "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
+        "AVGO", "ORCL", "CRM", "ADBE", "PLTR", "SNOW", "NET", "CRWD",
+        "JPM", "BAC", "GS", "V", "MA", "PYPL",
+        "XOM", "CVX", "COP", "OXY",
+        "JNJ", "PFE", "LLY", "UNH", "MRNA",
+        "WMT", "HD", "MCD", "SBUX", "NKE", "AMZN",
+        "COIN", "MSTR", "RIOT", "MARA",
+        "TSLA", "RIVN", "NIO", "F", "GM",
+        "BA", "LMT", "RTX", "HON",
+        "SOFI", "HOOD", "UPST",
+        "DIS", "NFLX", "SPOT",
+        "GLD", "SLV", "USO", "TLT",
+    ]
+    WEEK52_LIST = list(dict.fromkeys(WEEK52_LIST))
 
     def check_ticker(ticker):
         try:
@@ -468,21 +481,16 @@ def week52():
             return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        futures = {executor.submit(check_ticker, t): t for t in SCAN_LIST}
-        for future in concurrent.futures.as_completed(futures, timeout=120):
+        futures = {executor.submit(check_ticker, t): t for t in WEEK52_LIST}
+        for future in concurrent.futures.as_completed(futures, timeout=60):
             try:
                 result = future.result(timeout=5)
                 if not result:
                     continue
-
-                # Near 52-week high (within 5%)
                 if result["pct_from_high"] >= -5:
                     results_high.append({**result, "signal": "near_high"})
-
-                # Near 52-week low (within 5%)
                 if result["pct_from_low"] <= 5:
                     results_low.append({**result, "signal": "near_low"})
-
             except Exception:
                 continue
 
@@ -494,5 +502,5 @@ def week52():
         "near_lows": results_low,
         "total_highs": len(results_high),
         "total_lows": len(results_low),
-        "scanned": len(SCAN_LIST),
+        "scanned": len(WEEK52_LIST),
     }
