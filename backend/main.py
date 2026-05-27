@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
-import pandas as pd
 from datetime import datetime
 
 app = FastAPI()
@@ -13,22 +12,68 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Big list of stocks and ETFs to scan
 SCAN_LIST = [
     # Major ETFs
-    "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "ARK", "ARKK", "ARKW",
-    # Tech
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
-    "INTC", "CRM", "ORCL", "NFLX", "ADBE", "PYPL", "SHOP", "SNOW",
+    "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "ARKK", "ARKW", "ARKG",
+    "XLF", "XLK", "XLE", "XLV", "XLI", "XLB", "XLU", "XLP", "XLY",
+    "GLD", "SLV", "USO", "TLT", "HYG", "LQD", "EEM", "VXX", "SQQQ",
+    "TQQQ", "SPXU", "UVXY", "BITI", "BITO",
+
+    # Mega Cap Tech
+    "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA",
+    "AVGO", "ORCL", "AMD", "INTC", "QCOM", "TXN", "MU", "AMAT", "LRCX",
+    "KLAC", "MRVL", "SMCI", "ARM", "ASML",
+
+    # Software & Cloud
+    "CRM", "ADBE", "NOW", "SNOW", "PLTR", "DDOG", "NET", "CRWD", "ZS",
+    "PANW", "OKTA", "MDB", "GTLB", "HUBS", "TEAM", "WDAY", "VEEV",
+    "SHOP", "TWLO", "ZM", "DOCU", "BOX", "DOCN",
+
     # Finance
-    "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "AXP",
-    # Energy
-    "XOM", "CVX", "COP", "SLB", "OXY",
-    # Health
-    "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY",
-    # Consumer
-    "WMT", "AMZN", "HD", "MCD", "SBUX", "NKE", "DIS",
+    "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "SCHW", "AXP",
+    "V", "MA", "PYPL", "SQ", "COF", "USB", "PNC", "TFC", "BX", "KKR",
+
+    # Energy & Oil
+    "XOM", "CVX", "COP", "SLB", "OXY", "EOG", "PXD", "MPC", "VLO",
+    "PSX", "HAL", "BKR", "DVN", "FANG", "APA", "HES",
+
+    # Health & Biotech
+    "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "BMY", "AMGN", "GILD",
+    "BIIB", "REGN", "VRTX", "MRNA", "BNTX", "ILMN", "DXCM", "ISRG",
+    "SYK", "MDT", "ABT", "TMO", "DHR", "A", "IDXX",
+
+    # Consumer & Retail
+    "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST", "LOW", "TJX",
+    "BABA", "JD", "PDD", "MELI", "SE", "GRAB", "DASH", "UBER", "LYFT",
+    "ABNB", "BKNG", "EXPE", "MAR", "HLT",
+
+    # Media & Entertainment
+    "DIS", "NFLX", "PARA", "WBD", "CMCSA", "T", "VZ", "TMUS", "CHTR",
+    "SPOT", "RBLX", "EA", "TTWO", "ATVI",
+
+    # Auto & EV
+    "TSLA", "F", "GM", "RIVN", "LCID", "NIO", "LI", "XPEV", "FSR",
+
+    # Real Estate
+    "AMT", "PLD", "CCI", "EQIX", "SPG", "O", "VICI", "AVB", "EQR",
+
+    # Industrial & Defense
+    "BA", "LMT", "RTX", "NOC", "GD", "HON", "GE", "CAT", "DE",
+    "MMM", "EMR", "ETN", "ITW", "PH", "ROK",
+
+    # Crypto Related
+    "COIN", "MSTR", "RIOT", "MARA", "CLSK", "CIFR", "HUT",
+
+    # Chinese Tech
+    "BABA", "JD", "BIDU", "TCEHY", "NTES", "TME", "IQ",
+
+    # Small & Mid Cap Movers
+    "SOFI", "HOOD", "UPST", "AFRM", "LC", "OPEN", "OPENDOOR",
+    "PLUG", "FCEL", "BLNK", "CHPT", "ENVX", "LAZR", "JOBY", "ACHR",
 ]
+
+# Remove duplicates
+SCAN_LIST = list(dict.fromkeys(SCAN_LIST))
 
 
 @app.get("/")
@@ -64,12 +109,8 @@ def get_stock(ticker: str):
 
 @app.get("/scan")
 def scan_market():
-    """
-    Scan all tickers and return ones moving significantly today.
-    Flags anything up or down more than 2% on the day.
-    """
     results = []
-    threshold = 2.0  # percent
+    threshold = 2.0
 
     for ticker in SCAN_LIST:
         try:
@@ -101,19 +142,19 @@ def scan_market():
         except Exception:
             continue
 
-    # Sort by biggest movers first
     results.sort(key=lambda x: abs(x["change_pct"]), reverse=True)
     return {"movers": results, "total": len(results), "scanned": len(SCAN_LIST)}
+
+
 @app.get("/chart/{ticker}")
 def get_chart(ticker: str, period: str = "6mo"):
-    """Return historical price data for charting."""
     try:
         stock = yf.Ticker(ticker.upper())
         hist = stock.history(period=period)
-        
+
         if hist.empty:
             raise HTTPException(status_code=404, detail="No data found")
-        
+
         data = []
         for date, row in hist.iterrows():
             data.append({
@@ -121,7 +162,7 @@ def get_chart(ticker: str, period: str = "6mo"):
                 "price": round(row["Close"], 2),
                 "volume": int(row["Volume"]),
             })
-        
+
         return {"ticker": ticker.upper(), "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
