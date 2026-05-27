@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 import requests
+import concurrent.futures
 from datetime import datetime, timedelta
 import os
 
@@ -51,6 +52,24 @@ SCAN_LIST = [
 SCAN_LIST = list(dict.fromkeys(SCAN_LIST))
 
 
+def fetch_ticker_data(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        fast = stock.fast_info
+        price = fast.last_price
+        prev_close = fast.previous_close
+        volume = fast.last_volume
+        avg_volume = fast.three_month_average_volume
+        return {
+            "price": price,
+            "prev_close": prev_close,
+            "volume": volume,
+            "avg_volume": avg_volume,
+        }
+    except Exception:
+        return None
+
+
 @app.get("/")
 def root():
     return {"status": "Stock Tracker API is running"}
@@ -61,13 +80,9 @@ def get_stock(ticker: str):
     ticker = ticker.strip().upper()
     if not ticker:
         raise HTTPException(status_code=400, detail="Ticker symbol required")
-    
     try:
         stock = yf.Ticker(ticker)
-        
-        # Try fast_info first — more reliable
         try:
-            stock = yf.Ticker(ticker)
             fast = stock.fast_info
             price = fast.last_price
             prev_close = fast.previous_close
@@ -75,14 +90,11 @@ def get_stock(ticker: str):
             volume = fast.three_month_average_volume
             change_pct = ((price - prev_close) / prev_close) if price and prev_close else None
             name = ticker
-            
-            # Try to get name from info
             try:
                 info = stock.info or {}
                 name = info.get("longName") or info.get("shortName") or ticker
             except Exception:
                 pass
-            
             return {
                 "ticker": ticker,
                 "name": name,
@@ -93,8 +105,6 @@ def get_stock(ticker: str):
             }
         except Exception:
             pass
-
-        # Fallback to history
         hist = stock.history(period="2d")
         if not hist.empty and len(hist) >= 1:
             price = round(hist["Close"].iloc[-1], 2)
@@ -111,7 +121,6 @@ def get_stock(ticker: str):
             }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
     raise HTTPException(status_code=404, detail="No data found")
 
 
@@ -119,31 +128,41 @@ def get_stock(ticker: str):
 def scan_market():
     results = []
     threshold = 2.0
-    for ticker in SCAN_LIST:
-        try:
-            stock = yf.Ticker(ticker)
-            info = stock.info or {}
-            price = info.get("currentPrice") or info.get("regularMarketPrice")
-            prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
-            name = info.get("longName") or info.get("shortName") or ticker
-            volume = info.get("volume") or 0
-            avg_volume = info.get("averageVolume") or 1
-            if not price or not prev_close:
+
+    def check_ticker(ticker):
+        data = fetch_ticker_data(ticker)
+        if not data:
+            return None
+        price = data["price"]
+        prev_close = data["prev_close"]
+        volume = data["volume"]
+        avg_volume = data["avg_volume"]
+        if not price or not prev_close:
+            return None
+        change_pct = ((price - prev_close) / prev_close) * 100
+        volume_ratio = volume / avg_volume if avg_volume else 1
+        if abs(change_pct) >= threshold:
+            return {
+                "ticker": ticker,
+                "name": ticker,
+                "price": round(price, 2),
+                "change_pct": round(change_pct, 2),
+                "volume_ratio": round(volume_ratio, 2),
+                "direction": "up" if change_pct > 0 else "down",
+                "scanned_at": datetime.now().isoformat(),
+            }
+        return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_ticker = {executor.submit(check_ticker, t): t for t in SCAN_LIST}
+        for future in concurrent.futures.as_completed(future_to_ticker, timeout=120):
+            try:
+                result = future.result(timeout=5)
+                if result:
+                    results.append(result)
+            except Exception:
                 continue
-            change_pct = ((price - prev_close) / prev_close) * 100
-            volume_ratio = volume / avg_volume if avg_volume else 1
-            if abs(change_pct) >= threshold:
-                results.append({
-                    "ticker": ticker,
-                    "name": name,
-                    "price": round(price, 2),
-                    "change_pct": round(change_pct, 2),
-                    "volume_ratio": round(volume_ratio, 2),
-                    "direction": "up" if change_pct > 0 else "down",
-                    "scanned_at": datetime.now().isoformat(),
-                })
-        except Exception:
-            continue
+
     results.sort(key=lambda x: abs(x["change_pct"]), reverse=True)
     return {"movers": results, "total": len(results), "scanned": len(SCAN_LIST)}
 
@@ -191,43 +210,39 @@ def get_news(ticker: str):
 
 @app.get("/volume-spikes")
 def volume_spikes(threshold: float = 3.0):
-    import concurrent.futures
     results = []
 
     def check_ticker(ticker):
-        try:
-            stock = yf.Ticker(ticker)
-            fast = stock.fast_info
-            price = fast.last_price
-            prev_close = fast.previous_close
-            volume = fast.last_volume
-            avg_volume = fast.three_month_average_volume
-
-            if not price or not volume or not avg_volume:
-                return None
-
-            volume_ratio = volume / avg_volume
-            if volume_ratio >= threshold:
-                change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
-                return {
-                    "ticker": ticker,
-                    "name": ticker,
-                    "price": round(price, 2),
-                    "change_pct": round(change_pct, 2),
-                    "volume": int(volume),
-                    "avg_volume": int(avg_volume),
-                    "volume_ratio": round(volume_ratio, 2),
-                    "direction": "up" if change_pct > 0 else "down",
-                    "scanned_at": datetime.now().isoformat(),
-                }
-        except Exception:
+        data = fetch_ticker_data(ticker)
+        if not data:
             return None
+        price = data["price"]
+        prev_close = data["prev_close"]
+        volume = data["volume"]
+        avg_volume = data["avg_volume"]
+        if not price or not volume or not avg_volume:
+            return None
+        volume_ratio = volume / avg_volume
+        if volume_ratio >= threshold:
+            change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
+            return {
+                "ticker": ticker,
+                "name": ticker,
+                "price": round(price, 2),
+                "change_pct": round(change_pct, 2),
+                "volume": int(volume),
+                "avg_volume": int(avg_volume),
+                "volume_ratio": round(volume_ratio, 2),
+                "direction": "up" if change_pct > 0 else "down",
+                "scanned_at": datetime.now().isoformat(),
+            }
+        return None
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(check_ticker, ticker): ticker for ticker in SCAN_LIST}
-        for future in concurrent.futures.as_completed(futures, timeout=60):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        future_to_ticker = {executor.submit(check_ticker, t): t for t in SCAN_LIST}
+        for future in concurrent.futures.as_completed(future_to_ticker, timeout=120):
             try:
-                result = future.result(timeout=3)
+                result = future.result(timeout=5)
                 if result:
                     results.append(result)
             except Exception:
