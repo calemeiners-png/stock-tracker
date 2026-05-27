@@ -758,6 +758,7 @@ const styles = {
   newsItem: { display: "block", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", textDecoration: "none", cursor: "pointer", border: "1px solid #334155" },
   newsHeadline: { color: "#f1f5f9", fontSize: "0.9rem", marginBottom: "4px", lineHeight: "1.4" },
   newsMeta: { color: "#64748b", fontSize: "0.75rem" },
+  marketBtn: { padding: "0.6rem 1.25rem", borderRadius: "8px", border: "none", background: "#3b82f6", color: "#fff", fontSize: "1rem", cursor: "pointer", fontWeight: "700", boxShadow: "0 0 12px rgba(59,130,246,0.5)" },
   insiderItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", border: "1px solid #334155" },
   insiderName: { color: "#f1f5f9", fontSize: "0.9rem", fontWeight: "500" },
   insiderMeta: { color: "#64748b", fontSize: "0.75rem", marginTop: "2px" },
