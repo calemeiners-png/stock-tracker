@@ -51,7 +51,6 @@ SCAN_LIST = [
 
 SCAN_LIST = list(dict.fromkeys(SCAN_LIST))
 
-# Focused list for faster volume spike scanning
 VOLUME_SCAN_LIST = [
     "SPY", "QQQ", "TQQQ", "SQQQ", "UVXY", "VXX",
     "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD",
@@ -65,6 +64,25 @@ VOLUME_SCAN_LIST = [
     "BABA", "PDD", "JD", "BIDU",
     "ARKK", "GLD", "SLV", "USO",
 ]
+
+BROAD_LIST = [
+    "SPY", "QQQ", "IWM", "DIA", "ARKK",
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
+    "AVGO", "ORCL", "CRM", "ADBE", "PLTR", "SNOW", "NET", "CRWD",
+    "DDOG", "ZS", "PANW", "MDB", "SHOP", "COIN", "MSTR",
+    "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "PYPL", "SQ",
+    "XOM", "CVX", "COP", "OXY", "SLB", "HAL",
+    "JNJ", "PFE", "LLY", "UNH", "MRNA", "ABBV", "AMGN",
+    "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST",
+    "RIVN", "NIO", "F", "GM", "LCID",
+    "BA", "LMT", "RTX", "HON", "GE", "CAT",
+    "RIOT", "MARA", "HOOD", "SOFI", "UPST", "AFRM",
+    "DIS", "NFLX", "SPOT", "RBLX",
+    "BABA", "PDD", "JD", "BIDU",
+    "GLD", "SLV", "USO", "TLT", "VXX",
+]
+
+BROAD_LIST = list(dict.fromkeys(BROAD_LIST))
 
 
 def fetch_ticker_data(ticker):
@@ -157,7 +175,6 @@ def scan_market():
         change_pct = ((price - prev_close) / prev_close) * 100
         volume_ratio = volume / avg_volume if avg_volume else 1
         if abs(change_pct) >= threshold:
-            # Try to get company name
             try:
                 info = yf.Ticker(ticker).info
                 name = info.get("longName") or info.get("shortName") or ticker
@@ -191,37 +208,26 @@ def scan_market():
 @app.get("/chart/{ticker}")
 def get_chart(ticker: str, period: str = "6mo"):
     try:
-        # Map custom periods to yfinance periods
         period_map = {
-            "1mo": "1mo",
-            "3mo": "3mo",
-            "6mo": "6mo",
-            "1y": "1y",
-            "2y": "2y",
-            "5y": "5y",
-            "10y": "10y",
+            "1mo": "1mo", "3mo": "3mo", "6mo": "6mo",
+            "1y": "1y", "2y": "2y", "5y": "5y", "10y": "10y",
         }
         yf_period = period_map.get(period, "6mo")
-
         stock = yf.Ticker(ticker.upper())
         hist = stock.history(period=yf_period)
         if hist.empty:
             raise HTTPException(status_code=404, detail="No data found")
-
         data = []
         for date, row in hist.iterrows():
-            # Include year for longer periods
             if period in ("1y", "2y", "5y", "10y"):
                 date_str = date.strftime("%b %d '%y")
             else:
                 date_str = date.strftime("%b %d")
-
             data.append({
                 "date": date_str,
                 "price": round(row["Close"], 2),
                 "volume": int(row["Volume"]),
             })
-
         return {"ticker": ticker.upper(), "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -295,27 +301,22 @@ def volume_spikes(threshold: float = 3.0):
 
 @app.get("/insider/{ticker}")
 def get_insider_trades(ticker: str):
-    """Fetch recent insider trades for a ticker from Finnhub."""
     try:
         url = f"https://finnhub.io/api/v1/stock/insider-transactions?symbol={ticker.upper()}&token={FINNHUB_API_KEY}"
         res = requests.get(url, timeout=10)
         data = res.json()
-
         trades = []
         for item in data.get("data", [])[:10]:
             shares = item.get("share", 0)
             price = item.get("price", 0)
             value = round(shares * price) if shares and price else 0
             trade_type = item.get("transactionCode", "")
-
-            # Simplify transaction codes
             if trade_type in ("P", "Buy"):
                 action = "buy"
             elif trade_type in ("S", "Sell"):
                 action = "sell"
             else:
                 action = trade_type.lower()
-
             trades.append({
                 "name": item.get("name", "Unknown"),
                 "title": item.get("position", ""),
@@ -326,17 +327,14 @@ def get_insider_trades(ticker: str):
                 "date": item.get("transactionDate", ""),
                 "filing_date": item.get("filingDate", ""),
             })
-
         return {"ticker": ticker.upper(), "trades": trades}
-    except Exception as e:
+    except Exception:
         return {"ticker": ticker.upper(), "trades": []}
 
 
 @app.get("/insider-feed")
 def insider_feed():
-    """Get recent insider trades across all major stocks."""
     try:
-        # Finnhub provides a general insider transactions endpoint
         tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL",
                    "JPM", "BAC", "GS", "XOM", "CVX", "UNH", "LLY", "V", "MA"]
         all_trades = []
@@ -384,65 +382,8 @@ def insider_feed():
 
         all_trades.sort(key=lambda x: x.get("date", ""), reverse=True)
         return {"trades": all_trades[:30]}
-    except Exception as e:
+    except Exception:
         return {"trades": []}
-    
-
-@app.get("/market")
-def get_market():
-    """Fetch prices for all market overview stocks at once."""
-    market_lists = {
-        "Indices": ["SPY", "QQQ", "DIA", "IWM", "VTI"],
-        "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"],
-        "Finance": ["JPM", "BAC", "GS", "V", "MA"],
-        "Energy": ["XOM", "CVX", "COP", "OXY"],
-        "Health": ["JNJ", "PFE", "LLY", "UNH"],
-        "Consumer": ["WMT", "HD", "MCD", "SBUX", "NKE"],
-        "Crypto": ["COIN", "MSTR", "RIOT", "MARA"],
-        "EV & Auto": ["TSLA", "RIVN", "NIO", "F", "GM"],
-    }
-
-    all_tickers = list({t for tickers in market_lists.values() for t in tickers})
-    prices = {}
-
-    def fetch(ticker):
-        try:
-            stock = yf.Ticker(ticker)
-            fast = stock.fast_info
-            price = fast.last_price
-            prev_close = fast.previous_close
-            change_pct = ((price - prev_close) / prev_close) * 100 if price and prev_close else 0
-            # Try to get company name
-            try:
-                info = stock.info
-                name = info.get("longName") or info.get("shortName") or ticker
-            except Exception:
-                name = ticker
-            return ticker, {
-                "ticker": ticker,
-                "name": name,
-                "price": round(price, 2) if price else None,
-                "change_pct": round(change_pct, 2) if change_pct else 0,
-                "direction": "up" if change_pct >= 0 else "down",
-            }
-        except Exception:
-            return ticker, None
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        futures = {executor.submit(fetch, t): t for t in all_tickers}
-        for future in concurrent.futures.as_completed(futures, timeout=30):
-            try:
-                ticker, data = future.result(timeout=5)
-                if data:
-                    prices[ticker] = data
-            except Exception:
-                continue
-
-    result = {}
-    for category, tickers in market_lists.items():
-        result[category] = [prices[t] for t in tickers if t in prices]
-
-    return result
 
 
 @app.get("/week52")
@@ -450,7 +391,6 @@ def week52():
     results_high = []
     results_low = []
 
-    # Use focused list for speed
     WEEK52_LIST = [
         "SPY", "QQQ", "DIA", "IWM", "ARKK",
         "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
@@ -458,9 +398,9 @@ def week52():
         "JPM", "BAC", "GS", "V", "MA", "PYPL",
         "XOM", "CVX", "COP", "OXY",
         "JNJ", "PFE", "LLY", "UNH", "MRNA",
-        "WMT", "HD", "MCD", "SBUX", "NKE", "AMZN",
+        "WMT", "HD", "MCD", "SBUX", "NKE",
         "COIN", "MSTR", "RIOT", "MARA",
-        "TSLA", "RIVN", "NIO", "F", "GM",
+        "RIVN", "NIO", "F", "GM",
         "BA", "LMT", "RTX", "HON",
         "SOFI", "HOOD", "UPST",
         "DIS", "NFLX", "SPOT",
@@ -475,16 +415,12 @@ def week52():
             price = fast.last_price
             high_52 = fast.year_high
             low_52 = fast.year_low
-
             if not price or not high_52 or not low_52:
                 return None
-
             pct_from_high = ((price - high_52) / high_52) * 100
             pct_from_low = ((price - low_52) / low_52) * 100
-
-            # Try to get company name
             try:
-                info = yf.Ticker(ticker).info
+                info = stock.info
                 name = info.get("longName") or info.get("shortName") or ticker
             except Exception:
                 name = ticker
@@ -523,32 +459,66 @@ def week52():
         "total_highs": len(results_high),
         "total_lows": len(results_low),
         "scanned": len(WEEK52_LIST),
+    }
+
+
+@app.get("/market")
+def get_market():
+    market_lists = {
+        "Indices": ["SPY", "QQQ", "DIA", "IWM", "VTI"],
+        "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"],
+        "Finance": ["JPM", "BAC", "GS", "V", "MA"],
+        "Energy": ["XOM", "CVX", "COP", "OXY"],
+        "Health": ["JNJ", "PFE", "LLY", "UNH"],
+        "Consumer": ["WMT", "HD", "MCD", "SBUX", "NKE"],
+        "Crypto": ["COIN", "MSTR", "RIOT", "MARA"],
+        "EV & Auto": ["TSLA", "RIVN", "NIO", "F", "GM"],
+    }
+
+    all_tickers = list({t for tickers in market_lists.values() for t in tickers})
+    prices = {}
+
+    def fetch(ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            fast = stock.fast_info
+            price = fast.last_price
+            prev_close = fast.previous_close
+            change_pct = ((price - prev_close) / prev_close) * 100 if price and prev_close else 0
+            try:
+                info = stock.info
+                name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                name = ticker
+            return ticker, {
+                "ticker": ticker,
+                "name": name,
+                "price": round(price, 2) if price else None,
+                "change_pct": round(change_pct, 2) if change_pct else 0,
+                "direction": "up" if change_pct >= 0 else "down",
+            }
+        except Exception:
+            return ticker, None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(fetch, t): t for t in all_tickers}
+        for future in concurrent.futures.as_completed(futures, timeout=30):
+            try:
+                ticker, data = future.result(timeout=5)
+                if data:
+                    prices[ticker] = data
+            except Exception:
+                continue
+
+    result = {}
+    for category, tickers in market_lists.items():
+        result[category] = [prices[t] for t in tickers if t in prices]
+
+    return result
 
 
 @app.get("/gainers-losers")
 def gainers_losers():
-    """
-    Get top 10 gainers and top 10 losers for the day
-    from a broad list of actively traded stocks.
-    """
-    BROAD_LIST = [
-        "SPY", "QQQ", "IWM", "DIA", "ARKK",
-        "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
-        "AVGO", "ORCL", "CRM", "ADBE", "PLTR", "SNOW", "NET", "CRWD",
-        "DDOG", "ZS", "PANW", "MDB", "SHOP", "COIN", "MSTR",
-        "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "PYPL", "SQ",
-        "XOM", "CVX", "COP", "OXY", "SLB", "HAL",
-        "JNJ", "PFE", "LLY", "UNH", "MRNA", "ABBV", "AMGN",
-        "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST",
-        "TSLA", "RIVN", "NIO", "F", "GM", "LCID",
-        "BA", "LMT", "RTX", "HON", "GE", "CAT",
-        "RIOT", "MARA", "HOOD", "SOFI", "UPST", "AFRM",
-        "DIS", "NFLX", "SPOT", "RBLX",
-        "BABA", "PDD", "JD", "BIDU",
-        "GLD", "SLV", "USO", "TLT", "VXX",
-    ]
-    BROAD_LIST = list(dict.fromkeys(BROAD_LIST))
-
     results = []
 
     def check_ticker(ticker):
