@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { supabase } from "./supabase";
+import Market from "./Market";
 
 const API = "https://stock-tracker-6acy.onrender.com";
 
@@ -51,6 +52,7 @@ function Auth() {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [showMarket, setShowMarket] = useState(false);
   const [tab, setTab] = useState("watchlist");
   const [scannerTab, setScannerTab] = useState("movers");
   const [ticker, setTicker] = useState("");
@@ -339,17 +341,19 @@ function App() {
   const periods = ["1mo", "3mo", "6mo", "1y", "2y"];
 
   if (!user) return <Auth />;
+  if (showMarket) return <Market onBack={() => setShowMarket(false)} />;
 
   return (
     <div style={styles.app}>
       <div style={styles.container}>
         <div style={styles.topBar}>
-          <h1 style={styles.title}>📈 Stock Tracker</h1>
-          <div style={styles.userBar}>
-            <span style={styles.userEmail}>{user.email}</span>
-            <button style={styles.signOutBtn} onClick={handleSignOut}>Sign Out</button>
-          </div>
-        </div>
+  <h1 style={styles.title}>📈 Stock Tracker</h1>
+  <div style={styles.userBar}>
+    <button style={styles.marketBtn} onClick={() => setShowMarket(true)}>📊 Market</button>
+    <span style={styles.userEmail}>{user.email}</span>
+    <button style={styles.signOutBtn} onClick={handleSignOut}>Sign Out</button>
+  </div>
+</div>
 
         {triggeredAlerts.map((a) => (
           <div key={a.id} style={styles.alertBanner}>
