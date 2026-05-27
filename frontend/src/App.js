@@ -60,6 +60,10 @@ function App() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [news, setNews] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  const [insiderTrades, setInsiderTrades] = useState([]);
+  const [loadingInsider, setLoadingInsider] = useState(false);
+  const [insiderFeed, setInsiderFeed] = useState([]);
+  const [loadingFeed, setLoadingFeed] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
@@ -67,7 +71,6 @@ function App() {
   const [spikes, setSpikes] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [scanningSpikes, setScanningSpikes] = useState(false);
-  const [spikeThreshold, setSpikeThreshold] = useState(3.0);
   const [lastScanned, setLastScanned] = useState(null);
   const [lastScannedSpikes, setLastScannedSpikes] = useState(null);
   const [error, setError] = useState("");
@@ -77,6 +80,7 @@ function App() {
   const [alertDirection, setAlertDirection] = useState("above");
   const [directionFilter, setDirectionFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
+  const [spikeThreshold, setSpikeThreshold] = useState(3.0);
 
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
@@ -174,6 +178,7 @@ function App() {
     setError("");
     setChartData([]);
     setNews([]);
+    setInsiderTrades([]);
     try {
       const res = await fetch(`${API}/stock/${symbol}`);
       const data = await res.json();
@@ -181,6 +186,7 @@ function App() {
       setStockData(data);
       fetchChart(symbol, chartPeriod);
       fetchNews(symbol);
+      fetchInsider(symbol);
     } catch (e) {
       setError("Could not find that ticker. Try again.");
     }
@@ -209,6 +215,30 @@ function App() {
       setNews([]);
     }
     setLoadingNews(false);
+  };
+
+  const fetchInsider = async (symbol) => {
+    setLoadingInsider(true);
+    try {
+      const res = await fetch(`${API}/insider/${symbol}`);
+      const data = await res.json();
+      setInsiderTrades(data.trades || []);
+    } catch (e) {
+      setInsiderTrades([]);
+    }
+    setLoadingInsider(false);
+  };
+
+  const fetchInsiderFeed = async () => {
+    setLoadingFeed(true);
+    try {
+      const res = await fetch(`${API}/insider-feed`);
+      const data = await res.json();
+      setInsiderFeed(data.trades || []);
+    } catch (e) {
+      setInsiderFeed([]);
+    }
+    setLoadingFeed(false);
   };
 
   const scanMarket = async () => {
@@ -302,6 +332,7 @@ function App() {
     if (c >= 1e9) return `$${(c / 1e9).toFixed(2)}B`;
     return `$${(c / 1e6).toFixed(2)}M`;
   };
+  const formatShares = (s) => s ? s.toLocaleString() : "N/A";
 
   const isUp = chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
   const chartColor = isUp ? "#22c55e" : "#ef4444";
@@ -330,11 +361,13 @@ function App() {
         <div style={styles.tabs}>
           <button style={{ ...styles.tab, ...(tab === "watchlist" ? styles.tabActive : {}) }} onClick={() => setTab("watchlist")}>⭐ Watchlist</button>
           <button style={{ ...styles.tab, ...(tab === "scanner" ? styles.tabActive : {}) }} onClick={() => setTab("scanner")}>🔍 Scanner</button>
+          <button style={{ ...styles.tab, ...(tab === "insider" ? styles.tabActive : {}) }} onClick={() => { setTab("insider"); if (insiderFeed.length === 0) fetchInsiderFeed(); }}>🏛️ Insider</button>
           <button style={{ ...styles.tab, ...(tab === "alerts" ? styles.tabActive : {}) }} onClick={() => setTab("alerts")}>
             🔔 Alerts {alerts.length > 0 && <span style={styles.badge}>{alerts.length}</span>}
           </button>
         </div>
 
+        {/* WATCHLIST TAB */}
         {tab === "watchlist" && (
           <div>
             <div style={styles.searchBox}>
@@ -381,6 +414,7 @@ function App() {
                     </ResponsiveContainer>
                   </div>
                 )}
+
                 {loadingNews && <div style={styles.chartLoading}>Loading news...</div>}
                 {!loadingNews && news.length > 0 && (
                   <div style={{ marginBottom: "1rem" }}>
@@ -393,6 +427,28 @@ function App() {
                     ))}
                   </div>
                 )}
+
+                {loadingInsider && <div style={styles.chartLoading}>Loading insider trades...</div>}
+                {!loadingInsider && insiderTrades.length > 0 && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <div style={{ color: "#94a3b8", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Insider Trades</div>
+                    {insiderTrades.map((t, i) => (
+                      <div key={i} style={styles.insiderItem}>
+                        <div>
+                          <div style={styles.insiderName}>{t.name}</div>
+                          <div style={styles.insiderMeta}>{t.title || "Insider"} · {t.date}</div>
+                        </div>
+                        <div style={styles.insiderRight}>
+                          <div style={styles.insiderShares}>{formatShares(t.shares)} shares</div>
+                          <span style={{ ...styles.insiderBadge, background: t.action === "buy" ? "#14532d" : "#450a0a", color: t.action === "buy" ? "#22c55e" : "#ef4444" }}>
+                            {t.action === "buy" ? "▲ BUY" : "▼ SELL"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
               </div>
             )}
@@ -421,6 +477,7 @@ function App() {
           </div>
         )}
 
+        {/* SCANNER TAB */}
         {tab === "scanner" && (
           <div>
             <div style={styles.scannerTabs}>
@@ -499,31 +556,22 @@ function App() {
               <div>
                 <div style={styles.scanHeader}>
                   <div>
-                    <p style={styles.scanInfo}>Scanning for stocks trading at <strong style={{ color: "#f1f5f9" }}>3x+ normal volume</strong></p>
+                    <p style={styles.scanInfo}>Scanning for stocks trading at <strong style={{ color: "#f1f5f9" }}>{spikeThreshold}x+ normal volume</strong></p>
                     {lastScannedSpikes && <p style={styles.scanTime}>Last scanned: {lastScannedSpikes} · Auto-refreshes every 5 min</p>}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end" }}>
-  <div style={{ display: "flex", gap: "0.5rem" }}>
-    {[1.5, 2, 3, 5].map((t) => (
-      <button
-        key={t}
-        style={{
-          ...styles.filterBtn,
-          ...(spikeThreshold === t ? { background: "#f59e0b", color: "#000", border: "none" } : {})
-        }}
-        onClick={() => { setSpikeThreshold(t); scanVolumeSpikes(t); }}
-      >
-        {t}x
-      </button>
-    ))}
-  </div>
-  <button style={styles.button} onClick={() => scanVolumeSpikes(spikeThreshold)} disabled={scanningSpikes}>
-    {scanningSpikes ? "Scanning..." : "🔊 Scan Now"}
-  </button>
-</div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      {[1.5, 2, 3, 5].map((t) => (
+                        <button key={t} style={{ ...styles.filterBtn, ...(spikeThreshold === t ? { background: "#f59e0b", color: "#000", border: "none" } : {}) }} onClick={() => { setSpikeThreshold(t); scanVolumeSpikes(t); }}>
+                          {t}x
+                        </button>
+                      ))}
+                    </div>
+                    <button style={styles.button} onClick={() => scanVolumeSpikes(spikeThreshold)} disabled={scanningSpikes}>{scanningSpikes ? "Scanning..." : "🔊 Scan Now"}</button>
+                  </div>
                 </div>
 
-                {scanningSpikes && <div style={styles.scanning}>⏳ Scanning for volume spikes... this takes 45-60 seconds</div>}
+                {scanningSpikes && <div style={styles.scanning}>⏳ Scanning for volume spikes... this takes about 30 seconds</div>}
                 {!scanningSpikes && spikes.length === 0 && lastScannedSpikes && <div style={styles.empty}>No volume spikes found right now.</div>}
 
                 {spikes.length > 0 && (
@@ -540,9 +588,7 @@ function App() {
                         </div>
                         <div style={styles.watchRight}>
                           <div style={styles.watchPrice}>${s.price}</div>
-                          <div style={{ fontSize: "0.9rem", fontWeight: "700", color: "#f59e0b" }}>
-                            🔊 {s.volume_ratio}x
-                          </div>
+                          <div style={{ fontSize: "0.9rem", fontWeight: "700", color: "#f59e0b" }}>🔊 {s.volume_ratio}x</div>
                           <div style={{ fontSize: "0.85rem", color: s.direction === "up" ? "#22c55e" : "#ef4444" }}>
                             {s.direction === "up" ? "▲" : "▼"} {formatPct(s.change_pct)}
                           </div>
@@ -557,6 +603,54 @@ function App() {
           </div>
         )}
 
+        {/* INSIDER TAB */}
+        {tab === "insider" && (
+          <div>
+            <div style={styles.scanHeader}>
+              <div>
+                <p style={styles.scanInfo}>Recent trades by <strong style={{ color: "#f1f5f9" }}>corporate insiders</strong> across major stocks</p>
+                <p style={styles.scanTime}>Data from SEC filings via Finnhub</p>
+              </div>
+              <button style={styles.button} onClick={fetchInsiderFeed} disabled={loadingFeed}>
+                {loadingFeed ? "Loading..." : "🔄 Refresh"}
+              </button>
+            </div>
+
+            {loadingFeed && <div style={styles.scanning}>⏳ Loading insider trades...</div>}
+
+            {!loadingFeed && insiderFeed.length === 0 && (
+              <div style={styles.empty}>No insider trades found. Click Refresh to load.</div>
+            )}
+
+            {insiderFeed.length > 0 && (
+              <div style={styles.watchlist}>
+                <h2 style={styles.sectionTitle}>🏛️ {insiderFeed.length} Recent Insider Trades</h2>
+                {insiderFeed.map((t, i) => (
+                  <div key={i} style={styles.watchItem}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div style={styles.watchTicker}>{t.ticker}</div>
+                        <span style={{ ...styles.insiderBadge, background: t.action === "buy" ? "#14532d" : "#450a0a", color: t.action === "buy" ? "#22c55e" : "#ef4444" }}>
+                          {t.action === "buy" ? "▲ BUY" : "▼ SELL"}
+                        </span>
+                      </div>
+                      <div style={styles.insiderName}>{t.name}</div>
+                      <div style={styles.insiderMeta}>{t.title || "Insider"} · {t.date}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={styles.insiderShares}>{formatShares(t.shares)} shares</div>
+                      <button style={{ ...styles.addSmallBtn, marginTop: "4px" }} onClick={() => { fetchStock(t.ticker); setTab("watchlist"); }}>
+                        Chart
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ALERTS TAB */}
         {tab === "alerts" && (
           <div>
             <div style={styles.card}>
@@ -606,7 +700,7 @@ const styles = {
   userEmail: { color: "#64748b", fontSize: "0.85rem" },
   signOutBtn: { padding: "0.4rem 0.75rem", borderRadius: "6px", border: "1px solid #334155", background: "transparent", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer" },
   tabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem" },
-  tab: { flex: 1, padding: "0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "1rem", cursor: "pointer" },
+  tab: { flex: 1, padding: "0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "0.9rem", cursor: "pointer" },
   tabActive: { background: "#3b82f6", color: "#fff", border: "1px solid #3b82f6" },
   badge: { background: "#ef4444", color: "#fff", borderRadius: "999px", padding: "1px 7px", fontSize: "0.75rem", marginLeft: "6px" },
   scannerTabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem" },
@@ -660,6 +754,12 @@ const styles = {
   newsItem: { display: "block", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", textDecoration: "none", cursor: "pointer", border: "1px solid #334155" },
   newsHeadline: { color: "#f1f5f9", fontSize: "0.9rem", marginBottom: "4px", lineHeight: "1.4" },
   newsMeta: { color: "#64748b", fontSize: "0.75rem" },
+  insiderItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", border: "1px solid #334155" },
+  insiderName: { color: "#f1f5f9", fontSize: "0.9rem", fontWeight: "500" },
+  insiderMeta: { color: "#64748b", fontSize: "0.75rem", marginTop: "2px" },
+  insiderRight: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" },
+  insiderShares: { color: "#94a3b8", fontSize: "0.85rem" },
+  insiderBadge: { padding: "2px 8px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "700" },
 };
 
 export default App;
