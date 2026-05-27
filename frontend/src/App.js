@@ -52,6 +52,7 @@ function Auth() {
 function App() {
   const [user, setUser] = useState(null);
   const [tab, setTab] = useState("watchlist");
+  const [scannerTab, setScannerTab] = useState("movers");
   const [ticker, setTicker] = useState("");
   const [stockData, setStockData] = useState(null);
   const [chartData, setChartData] = useState([]);
@@ -63,8 +64,11 @@ function App() {
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
   const [movers, setMovers] = useState([]);
+  const [spikes, setSpikes] = useState([]);
   const [scanning, setScanning] = useState(false);
+  const [scanningSpikes, setScanningSpikes] = useState(false);
   const [lastScanned, setLastScanned] = useState(null);
+  const [lastScannedSpikes, setLastScannedSpikes] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [alertTicker, setAlertTicker] = useState("");
@@ -214,17 +218,37 @@ function App() {
       setMovers(data.movers || []);
       setLastScanned(new Date().toLocaleTimeString());
     } catch (e) {
-      setError("Scan failed. Is the backend running?");
+      setError("Scan failed.");
     }
     setScanning(false);
   };
 
+  const scanVolumeSpikes = async () => {
+    setScanningSpikes(true);
+    try {
+      const res = await fetch(`${API}/volume-spikes`);
+      const data = await res.json();
+      setSpikes(data.spikes || []);
+      setLastScannedSpikes(new Date().toLocaleTimeString());
+    } catch (e) {
+      setError("Volume scan failed.");
+    }
+    setScanningSpikes(false);
+  };
+
   useEffect(() => {
     if (tab !== "scanner") return;
-    scanMarket();
-    const interval = setInterval(scanMarket, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (scannerTab === "movers") {
+      scanMarket();
+      const interval = setInterval(scanMarket, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+    if (scannerTab === "volume") {
+      scanVolumeSpikes();
+      const interval = setInterval(scanVolumeSpikes, 5 * 60 * 1000);
+      return () => clearInterval(interval);
+    }
+  }, [tab, scannerTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addToWatchlist = async () => {
     if (!stockData || watchlist.find((s) => s.ticker === stockData.ticker)) return;
@@ -400,68 +424,119 @@ function App() {
 
         {tab === "scanner" && (
           <div>
-            <div style={styles.scanHeader}>
-              <div>
-                <p style={styles.scanInfo}>Scanning <strong style={{ color: "#f1f5f9" }}>200+ stocks & ETFs</strong> for moves greater than 2%</p>
-                {lastScanned && <p style={styles.scanTime}>Last scanned: {lastScanned} · Auto-refreshes every 5 min</p>}
-              </div>
-              <button style={styles.button} onClick={scanMarket} disabled={scanning}>{scanning ? "Scanning..." : "🔍 Scan Now"}</button>
+            <div style={styles.scannerTabs}>
+              <button style={{ ...styles.scannerTab, ...(scannerTab === "movers" ? styles.scannerTabActive : {}) }} onClick={() => setScannerTab("movers")}>📈 Price Movers</button>
+              <button style={{ ...styles.scannerTab, ...(scannerTab === "volume" ? styles.scannerTabActive : {}) }} onClick={() => setScannerTab("volume")}>🔊 Volume Spikes</button>
             </div>
 
-            {movers.length > 0 && (
-              <div style={styles.filterSection}>
-                <div style={styles.filterGroup}>
-                  <div style={styles.filterLabel}>Direction</div>
-                  <div style={styles.filterRow}>
-                    {["all", "up", "down"].map((d) => (
-                      <button key={d} style={{ ...styles.filterBtn, ...(directionFilter === d ? { background: d === "up" ? "#22c55e" : d === "down" ? "#ef4444" : "#3b82f6", color: "#fff", border: "none" } : {}) }} onClick={() => setDirectionFilter(d)}>
-                        {d === "all" ? "All" : d === "up" ? "▲ Up" : "▼ Down"}
-                      </button>
-                    ))}
+            {scannerTab === "movers" && (
+              <div>
+                <div style={styles.scanHeader}>
+                  <div>
+                    <p style={styles.scanInfo}>Scanning <strong style={{ color: "#f1f5f9" }}>200+ stocks</strong> for moves greater than 2%</p>
+                    {lastScanned && <p style={styles.scanTime}>Last scanned: {lastScanned} · Auto-refreshes every 5 min</p>}
                   </div>
+                  <button style={styles.button} onClick={scanMarket} disabled={scanning}>{scanning ? "Scanning..." : "🔍 Scan Now"}</button>
                 </div>
-                <div style={styles.filterGroup}>
-                  <div style={styles.filterLabel}>Sector</div>
-                  <div style={styles.filterRowWrap}>
-                    {availableSectors.map((s) => (
-                      <button key={s} style={{ ...styles.filterBtn, ...(sectorFilter === s ? { background: "#3b82f6", color: "#fff", border: "none" } : {}) }} onClick={() => setSectorFilter(s)}>
-                        {s === "all" ? "All Sectors" : s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
-            {scanning && <div style={styles.scanning}>⏳ Scanning market... this takes 45-60 seconds with 200+ stocks</div>}
-            {!scanning && movers.length === 0 && lastScanned && <div style={styles.empty}>No significant movers found right now.</div>}
-
-            {filteredMovers.length > 0 && (
-              <div style={styles.watchlist}>
-                <h2 style={styles.sectionTitle}>
-                  🔥 {filteredMovers.length} Movers
-                  {directionFilter !== "all" && ` · ${directionFilter === "up" ? "▲ Up" : "▼ Down"}`}
-                  {sectorFilter !== "all" && ` · ${sectorFilter}`}
-                </h2>
-                {filteredMovers.map((s) => (
-                  <div key={s.ticker} style={styles.watchItem}>
-                    <div>
-                      <div style={styles.watchTicker}>{s.ticker}</div>
-                      <div style={styles.watchName}>{s.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>{getSector(s.ticker)} · Volume: {s.volume_ratio}x avg</div>
-                    </div>
-                    <div style={styles.watchRight}>
-                      <div style={styles.watchPrice}>${s.price}</div>
-                      <div style={{ fontSize: "1rem", fontWeight: "700", color: s.direction === "up" ? "#22c55e" : "#ef4444" }}>
-                        {s.direction === "up" ? "▲" : "▼"} {formatPct(s.change_pct)}
+                {movers.length > 0 && (
+                  <div style={styles.filterSection}>
+                    <div style={styles.filterGroup}>
+                      <div style={styles.filterLabel}>Direction</div>
+                      <div style={styles.filterRow}>
+                        {["all", "up", "down"].map((d) => (
+                          <button key={d} style={{ ...styles.filterBtn, ...(directionFilter === d ? { background: d === "up" ? "#22c55e" : d === "down" ? "#ef4444" : "#3b82f6", color: "#fff", border: "none" } : {}) }} onClick={() => setDirectionFilter(d)}>
+                            {d === "all" ? "All" : d === "up" ? "▲ Up" : "▼ Down"}
+                          </button>
+                        ))}
                       </div>
-                      <button style={styles.addSmallBtn} onClick={() => { setStockData(s); fetchChart(s.ticker, chartPeriod); setTab("watchlist"); }}>Chart</button>
+                    </div>
+                    <div style={styles.filterGroup}>
+                      <div style={styles.filterLabel}>Sector</div>
+                      <div style={styles.filterRowWrap}>
+                        {availableSectors.map((s) => (
+                          <button key={s} style={{ ...styles.filterBtn, ...(sectorFilter === s ? { background: "#3b82f6", color: "#fff", border: "none" } : {}) }} onClick={() => setSectorFilter(s)}>
+                            {s === "all" ? "All Sectors" : s}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {scanning && <div style={styles.scanning}>⏳ Scanning market... this takes 45-60 seconds</div>}
+                {!scanning && movers.length === 0 && lastScanned && <div style={styles.empty}>No significant movers found right now.</div>}
+
+                {filteredMovers.length > 0 && (
+                  <div style={styles.watchlist}>
+                    <h2 style={styles.sectionTitle}>
+                      🔥 {filteredMovers.length} Movers
+                      {directionFilter !== "all" && ` · ${directionFilter === "up" ? "▲ Up" : "▼ Down"}`}
+                      {sectorFilter !== "all" && ` · ${sectorFilter}`}
+                    </h2>
+                    {filteredMovers.map((s) => (
+                      <div key={s.ticker} style={styles.watchItem}>
+                        <div>
+                          <div style={styles.watchTicker}>{s.ticker}</div>
+                          <div style={styles.watchName}>{s.name}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>{getSector(s.ticker)} · Volume: {s.volume_ratio}x avg</div>
+                        </div>
+                        <div style={styles.watchRight}>
+                          <div style={styles.watchPrice}>${s.price}</div>
+                          <div style={{ fontSize: "1rem", fontWeight: "700", color: s.direction === "up" ? "#22c55e" : "#ef4444" }}>
+                            {s.direction === "up" ? "▲" : "▼"} {formatPct(s.change_pct)}
+                          </div>
+                          <button style={styles.addSmallBtn} onClick={() => { setStockData(s); fetchChart(s.ticker, chartPeriod); setTab("watchlist"); }}>Chart</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!scanning && movers.length > 0 && filteredMovers.length === 0 && <div style={styles.empty}>No movers match your current filters.</div>}
               </div>
             )}
-            {!scanning && movers.length > 0 && filteredMovers.length === 0 && <div style={styles.empty}>No movers match your current filters.</div>}
+
+            {scannerTab === "volume" && (
+              <div>
+                <div style={styles.scanHeader}>
+                  <div>
+                    <p style={styles.scanInfo}>Scanning for stocks trading at <strong style={{ color: "#f1f5f9" }}>3x+ normal volume</strong></p>
+                    {lastScannedSpikes && <p style={styles.scanTime}>Last scanned: {lastScannedSpikes} · Auto-refreshes every 5 min</p>}
+                  </div>
+                  <button style={styles.button} onClick={scanVolumeSpikes} disabled={scanningSpikes}>{scanningSpikes ? "Scanning..." : "🔊 Scan Now"}</button>
+                </div>
+
+                {scanningSpikes && <div style={styles.scanning}>⏳ Scanning for volume spikes... this takes 45-60 seconds</div>}
+                {!scanningSpikes && spikes.length === 0 && lastScannedSpikes && <div style={styles.empty}>No volume spikes found right now.</div>}
+
+                {spikes.length > 0 && (
+                  <div style={styles.watchlist}>
+                    <h2 style={styles.sectionTitle}>🔊 {spikes.length} Volume Spikes</h2>
+                    {spikes.map((s) => (
+                      <div key={s.ticker} style={styles.watchItem}>
+                        <div>
+                          <div style={styles.watchTicker}>{s.ticker}</div>
+                          <div style={styles.watchName}>{s.name}</div>
+                          <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                            {getSector(s.ticker)} · Vol: {s.volume.toLocaleString()} vs avg {s.avg_volume.toLocaleString()}
+                          </div>
+                        </div>
+                        <div style={styles.watchRight}>
+                          <div style={styles.watchPrice}>${s.price}</div>
+                          <div style={{ fontSize: "0.9rem", fontWeight: "700", color: "#f59e0b" }}>
+                            🔊 {s.volume_ratio}x
+                          </div>
+                          <div style={{ fontSize: "0.85rem", color: s.direction === "up" ? "#22c55e" : "#ef4444" }}>
+                            {s.direction === "up" ? "▲" : "▼"} {formatPct(s.change_pct)}
+                          </div>
+                          <button style={styles.addSmallBtn} onClick={() => { setStockData(s); fetchChart(s.ticker, chartPeriod); setTab("watchlist"); }}>Chart</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -517,6 +592,9 @@ const styles = {
   tab: { flex: 1, padding: "0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "1rem", cursor: "pointer" },
   tabActive: { background: "#3b82f6", color: "#fff", border: "1px solid #3b82f6" },
   badge: { background: "#ef4444", color: "#fff", borderRadius: "999px", padding: "1px 7px", fontSize: "0.75rem", marginLeft: "6px" },
+  scannerTabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem" },
+  scannerTab: { flex: 1, padding: "0.65rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "0.95rem", cursor: "pointer" },
+  scannerTabActive: { background: "#1d4ed8", color: "#fff", border: "1px solid #1d4ed8" },
   searchBox: { display: "flex", gap: "0.5rem", marginBottom: "1rem" },
   input: { flex: 1, padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#f1f5f9", fontSize: "1rem", outline: "none" },
   select: { padding: "0.75rem 1rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#f1f5f9", fontSize: "1rem" },
