@@ -67,6 +67,7 @@ function App() {
   const [spikes, setSpikes] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [scanningSpikes, setScanningSpikes] = useState(false);
+  const [spikeThreshold, setSpikeThreshold] = useState(3.0);
   const [lastScanned, setLastScanned] = useState(null);
   const [lastScannedSpikes, setLastScannedSpikes] = useState(null);
   const [error, setError] = useState("");
@@ -223,10 +224,10 @@ function App() {
     setScanning(false);
   };
 
-  const scanVolumeSpikes = async () => {
+  const scanVolumeSpikes = async (threshold = spikeThreshold) => {
     setScanningSpikes(true);
     try {
-      const res = await fetch(`${API}/volume-spikes`);
+      const res = await fetch(`${API}/volume-spikes?threshold=${threshold}`);
       const data = await res.json();
       setSpikes(data.spikes || []);
       setLastScannedSpikes(new Date().toLocaleTimeString());
@@ -503,7 +504,25 @@ function App() {
                     <p style={styles.scanInfo}>Scanning for stocks trading at <strong style={{ color: "#f1f5f9" }}>3x+ normal volume</strong></p>
                     {lastScannedSpikes && <p style={styles.scanTime}>Last scanned: {lastScannedSpikes} · Auto-refreshes every 5 min</p>}
                   </div>
-                  <button style={styles.button} onClick={scanVolumeSpikes} disabled={scanningSpikes}>{scanningSpikes ? "Scanning..." : "🔊 Scan Now"}</button>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end" }}>
+  <div style={{ display: "flex", gap: "0.5rem" }}>
+    {[1.5, 2, 3, 5].map((t) => (
+      <button
+        key={t}
+        style={{
+          ...styles.filterBtn,
+          ...(spikeThreshold === t ? { background: "#f59e0b", color: "#000", border: "none" } : {})
+        }}
+        onClick={() => { setSpikeThreshold(t); scanVolumeSpikes(t); }}
+      >
+        {t}x
+      </button>
+    ))}
+  </div>
+  <button style={styles.button} onClick={() => scanVolumeSpikes(spikeThreshold)} disabled={scanningSpikes}>
+    {scanningSpikes ? "Scanning..." : "🔊 Scan Now"}
+  </button>
+</div>
                 </div>
 
                 {scanningSpikes && <div style={styles.scanning}>⏳ Scanning for volume spikes... this takes 45-60 seconds</div>}
