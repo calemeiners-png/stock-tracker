@@ -185,17 +185,37 @@ def scan_market():
 @app.get("/chart/{ticker}")
 def get_chart(ticker: str, period: str = "6mo"):
     try:
+        # Map custom periods to yfinance periods
+        period_map = {
+            "1mo": "1mo",
+            "3mo": "3mo",
+            "6mo": "6mo",
+            "1y": "1y",
+            "2y": "2y",
+            "5y": "5y",
+            "10y": "10y",
+        }
+        yf_period = period_map.get(period, "6mo")
+
         stock = yf.Ticker(ticker.upper())
-        hist = stock.history(period=period)
+        hist = stock.history(period=yf_period)
         if hist.empty:
             raise HTTPException(status_code=404, detail="No data found")
+
         data = []
         for date, row in hist.iterrows():
+            # Include year for longer periods
+            if period in ("1y", "2y", "5y", "10y"):
+                date_str = date.strftime("%b %d '%y")
+            else:
+                date_str = date.strftime("%b %d")
+
             data.append({
-                "date": date.strftime("%b %d"),
+                "date": date_str,
                 "price": round(row["Close"], 2),
                 "volume": int(row["Volume"]),
             })
+
         return {"ticker": ticker.upper(), "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -24,7 +24,7 @@ export default function Market({ onBack }) {
   const [stockInfo, setStockInfo] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
 
-  const periods = ["1mo", "3mo", "6mo", "1y", "2y"];
+  const periods = ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y"];
 
   useEffect(() => {
     fetchMarket();
