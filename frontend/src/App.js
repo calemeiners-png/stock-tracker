@@ -11,7 +11,7 @@ function App() {
   const [chartPeriod, setChartPeriod] = useState("6mo");
   const [loadingChart, setLoadingChart] = useState(false);
   const [news, setNews] = useState([]);
-const [loadingNews, setLoadingNews] = useState(false);
+  const [loadingNews, setLoadingNews] = useState(false);
   const savedWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
   const [watchlist, setWatchlist] = useState(savedWatchlist);
   const [alerts, setAlerts] = useState(JSON.parse(localStorage.getItem("alerts") || "[]"));
@@ -24,15 +24,12 @@ const [loadingNews, setLoadingNews] = useState(false);
   const [alertTicker, setAlertTicker] = useState("");
   const [alertPrice, setAlertPrice] = useState("");
   const [alertDirection, setAlertDirection] = useState("above");
-
-  // Scanner filters
-  const [directionFilter, setDirectionFilter] = useState("all"); // all, up, down
+  const [directionFilter, setDirectionFilter] = useState("all");
   const [sectorFilter, setSectorFilter] = useState("all");
 
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
 
-  // Sector mapping
   const SECTORS = {
     "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "AMD", "INTC", "QCOM", "TXN", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "SMCI", "ARM", "ASML", "CRM", "ADBE", "NOW", "SNOW", "PLTR", "DDOG", "NET", "CRWD", "ZS", "PANW", "OKTA", "MDB", "GTLB", "HUBS", "TEAM", "WDAY", "VEEV", "SHOP", "TWLO", "ZM", "DOCU", "BOX", "DOCN", "AVGO", "ORCL"],
     "Finance": ["JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "SCHW", "AXP", "V", "MA", "PYPL", "SQ", "COF", "USB", "PNC", "TFC", "BX", "KKR"],
@@ -103,6 +100,7 @@ const [loadingNews, setLoadingNews] = useState(false);
     setLoading(true);
     setError("");
     setChartData([]);
+    setNews([]);
     try {
       const res = await fetch(`${API}/stock/${symbol}`);
       const data = await res.json();
@@ -127,6 +125,7 @@ const [loadingNews, setLoadingNews] = useState(false);
     }
     setLoadingChart(false);
   };
+
   const fetchNews = async (symbol) => {
     setLoadingNews(true);
     try {
@@ -230,7 +229,6 @@ const [loadingNews, setLoadingNews] = useState(false);
           </button>
         </div>
 
-        {/* WATCHLIST TAB */}
         {tab === "watchlist" && (
           <div>
             <div style={styles.searchBox}>
@@ -297,18 +295,21 @@ const [loadingNews, setLoadingNews] = useState(false);
                     </ResponsiveContainer>
                   </div>
                 )}
-{loadingNews && <div style={styles.chartLoading}>Loading news...</div>}
-{!loadingNews && news.length > 0 && (
-  <div style={{ marginBottom: "1rem" }}>
-    <div style={{ color: "#94a3b8", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Latest News</div>
-    {news.map((article, i) => (
-      <a key={i} href={article.url} target="_blank" rel="noreferrer" style={styles.newsItem}>
-        <div style={styles.newsHeadline}>{article.headline}</div>
-        <div style={styles.newsMeta}>{article.source} · {article.datetime}</div>
-      </a>
-    ))}
-  </div>
-)}                <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
+
+                {loadingNews && <div style={styles.chartLoading}>Loading news...</div>}
+                {!loadingNews && news.length > 0 && (
+                  <div style={{ marginBottom: "1rem" }}>
+                    <div style={{ color: "#94a3b8", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Latest News</div>
+                    {news.map((article, i) => (
+                      <a key={i} href={article.url} target="_blank" rel="noreferrer" style={styles.newsItem}>
+                        <div style={styles.newsHeadline}>{article.headline}</div>
+                        <div style={styles.newsMeta}>{article.source} · {article.datetime}</div>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
               </div>
             )}
 
@@ -338,7 +339,6 @@ const [loadingNews, setLoadingNews] = useState(false);
           </div>
         )}
 
-        {/* SCANNER TAB */}
         {tab === "scanner" && (
           <div>
             <div style={styles.scanHeader}>
@@ -351,10 +351,8 @@ const [loadingNews, setLoadingNews] = useState(false);
               </button>
             </div>
 
-            {/* Filters */}
             {movers.length > 0 && (
               <div style={styles.filterSection}>
-                {/* Direction Filter */}
                 <div style={styles.filterGroup}>
                   <div style={styles.filterLabel}>Direction</div>
                   <div style={styles.filterRow}>
@@ -376,8 +374,6 @@ const [loadingNews, setLoadingNews] = useState(false);
                     ))}
                   </div>
                 </div>
-
-                {/* Sector Filter */}
                 <div style={styles.filterGroup}>
                   <div style={styles.filterLabel}>Sector</div>
                   <div style={styles.filterRowWrap}>
@@ -440,7 +436,6 @@ const [loadingNews, setLoadingNews] = useState(false);
           </div>
         )}
 
-        {/* ALERTS TAB */}
         {tab === "alerts" && (
           <div>
             <div style={styles.card}>
@@ -534,9 +529,9 @@ const styles = {
   filterRow: { display: "flex", gap: "0.5rem" },
   filterRowWrap: { display: "flex", gap: "0.5rem", flexWrap: "wrap" },
   filterBtn: { padding: "0.35rem 0.75rem", borderRadius: "6px", border: "1px solid #334155", background: "#0f172a", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer" },
-};
-newsItem: { display: "block", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", textDecoration: "none", cursor: "pointer", border: "1px solid #334155" },
+  newsItem: { display: "block", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", textDecoration: "none", cursor: "pointer", border: "1px solid #334155" },
   newsHeadline: { color: "#f1f5f9", fontSize: "0.9rem", marginBottom: "4px", lineHeight: "1.4" },
   newsMeta: { color: "#64748b", fontSize: "0.75rem" },
+};
 
 export default App;
