@@ -360,3 +360,53 @@ def insider_feed():
         return {"trades": all_trades[:30]}
     except Exception as e:
         return {"trades": []}
+    
+
+@app.get("/market")
+def get_market():
+    """Fetch prices for all market overview stocks at once."""
+    market_lists = {
+        "Indices": ["SPY", "QQQ", "DIA", "IWM", "VTI"],
+        "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD"],
+        "Finance": ["JPM", "BAC", "GS", "V", "MA"],
+        "Energy": ["XOM", "CVX", "COP", "OXY"],
+        "Health": ["JNJ", "PFE", "LLY", "UNH"],
+        "Consumer": ["WMT", "HD", "MCD", "SBUX", "NKE"],
+        "Crypto": ["COIN", "MSTR", "RIOT", "MARA"],
+        "EV & Auto": ["TSLA", "RIVN", "NIO", "F", "GM"],
+    }
+
+    all_tickers = list({t for tickers in market_lists.values() for t in tickers})
+    prices = {}
+
+    def fetch(ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            fast = stock.fast_info
+            price = fast.last_price
+            prev_close = fast.previous_close
+            change_pct = ((price - prev_close) / prev_close) * 100 if price and prev_close else 0
+            return ticker, {
+                "ticker": ticker,
+                "price": round(price, 2) if price else None,
+                "change_pct": round(change_pct, 2) if change_pct else 0,
+                "direction": "up" if change_pct >= 0 else "down",
+            }
+        except Exception:
+            return ticker, None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(fetch, t): t for t in all_tickers}
+        for future in concurrent.futures.as_completed(futures, timeout=30):
+            try:
+                ticker, data = future.result(timeout=5)
+                if data:
+                    prices[ticker] = data
+            except Exception:
+                continue
+
+    result = {}
+    for category, tickers in market_lists.items():
+        result[category] = [prices[t] for t in tickers if t in prices]
+
+    return result
