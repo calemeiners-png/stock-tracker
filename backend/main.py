@@ -1,10 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
-from datetime import datetime
+import requests
+from datetime import datetime, timedelta
 import os
-
-FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "d8b7scpr01qk20sq0c70d8b7scpr01qk20sq0c7g")
 
 app = FastAPI()
 
@@ -15,67 +14,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
+
 SCAN_LIST = [
-    # Major ETFs
     "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "ARKK", "ARKW", "ARKG",
     "XLF", "XLK", "XLE", "XLV", "XLI", "XLB", "XLU", "XLP", "XLY",
     "GLD", "SLV", "USO", "TLT", "HYG", "LQD", "EEM", "VXX", "SQQQ",
     "TQQQ", "SPXU", "UVXY", "BITI", "BITO",
-
-    # Mega Cap Tech
     "AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "TSLA",
     "AVGO", "ORCL", "AMD", "INTC", "QCOM", "TXN", "MU", "AMAT", "LRCX",
     "KLAC", "MRVL", "SMCI", "ARM", "ASML",
-
-    # Software & Cloud
     "CRM", "ADBE", "NOW", "SNOW", "PLTR", "DDOG", "NET", "CRWD", "ZS",
     "PANW", "OKTA", "MDB", "GTLB", "HUBS", "TEAM", "WDAY", "VEEV",
     "SHOP", "TWLO", "ZM", "DOCU", "BOX", "DOCN",
-
-    # Finance
     "JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "SCHW", "AXP",
     "V", "MA", "PYPL", "SQ", "COF", "USB", "PNC", "TFC", "BX", "KKR",
-
-    # Energy & Oil
     "XOM", "CVX", "COP", "SLB", "OXY", "EOG", "PXD", "MPC", "VLO",
     "PSX", "HAL", "BKR", "DVN", "FANG", "APA", "HES",
-
-    # Health & Biotech
     "JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "BMY", "AMGN", "GILD",
     "BIIB", "REGN", "VRTX", "MRNA", "BNTX", "ILMN", "DXCM", "ISRG",
     "SYK", "MDT", "ABT", "TMO", "DHR", "A", "IDXX",
-
-    # Consumer & Retail
     "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST", "LOW", "TJX",
     "BABA", "JD", "PDD", "MELI", "SE", "GRAB", "DASH", "UBER", "LYFT",
     "ABNB", "BKNG", "EXPE", "MAR", "HLT",
-
-    # Media & Entertainment
     "DIS", "NFLX", "PARA", "WBD", "CMCSA", "T", "VZ", "TMUS", "CHTR",
-    "SPOT", "RBLX", "EA", "TTWO", "ATVI",
-
-    # Auto & EV
-    "TSLA", "F", "GM", "RIVN", "LCID", "NIO", "LI", "XPEV", "FSR",
-
-    # Real Estate
+    "SPOT", "RBLX", "EA", "TTWO",
+    "F", "GM", "RIVN", "LCID", "NIO", "LI", "XPEV",
     "AMT", "PLD", "CCI", "EQIX", "SPG", "O", "VICI", "AVB", "EQR",
-
-    # Industrial & Defense
     "BA", "LMT", "RTX", "NOC", "GD", "HON", "GE", "CAT", "DE",
     "MMM", "EMR", "ETN", "ITW", "PH", "ROK",
-
-    # Crypto Related
     "COIN", "MSTR", "RIOT", "MARA", "CLSK", "CIFR", "HUT",
-
-    # Chinese Tech
-    "BABA", "JD", "BIDU", "TCEHY", "NTES", "TME", "IQ",
-
-    # Small & Mid Cap Movers
-    "SOFI", "HOOD", "UPST", "AFRM", "LC", "OPEN", "OPENDOOR",
+    "SOFI", "HOOD", "UPST", "AFRM", "LC",
     "PLUG", "FCEL", "BLNK", "CHPT", "ENVX", "LAZR", "JOBY", "ACHR",
 ]
 
-# Remove duplicates
 SCAN_LIST = list(dict.fromkeys(SCAN_LIST))
 
 
@@ -89,17 +61,14 @@ def get_stock(ticker: str):
     ticker = ticker.strip().upper()
     if not ticker:
         raise HTTPException(status_code=400, detail="Ticker symbol required")
-
     stock = yf.Ticker(ticker)
     try:
         info = stock.info or {}
     except Exception:
         info = {}
-
     price = info.get("currentPrice") or info.get("regularMarketPrice")
     change_pct = info.get("52WeekChange")
     name = info.get("longName") or info.get("shortName") or ticker
-
     return {
         "ticker": ticker,
         "name": name,
@@ -114,24 +83,19 @@ def get_stock(ticker: str):
 def scan_market():
     results = []
     threshold = 2.0
-
     for ticker in SCAN_LIST:
         try:
             stock = yf.Ticker(ticker)
             info = stock.info or {}
-
             price = info.get("currentPrice") or info.get("regularMarketPrice")
             prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
             name = info.get("longName") or info.get("shortName") or ticker
             volume = info.get("volume") or 0
             avg_volume = info.get("averageVolume") or 1
-
             if not price or not prev_close:
                 continue
-
             change_pct = ((price - prev_close) / prev_close) * 100
             volume_ratio = volume / avg_volume if avg_volume else 1
-
             if abs(change_pct) >= threshold:
                 results.append({
                     "ticker": ticker,
@@ -144,7 +108,6 @@ def scan_market():
                 })
         except Exception:
             continue
-
     results.sort(key=lambda x: abs(x["change_pct"]), reverse=True)
     return {"movers": results, "total": len(results), "scanned": len(SCAN_LIST)}
 
@@ -154,10 +117,8 @@ def get_chart(ticker: str, period: str = "6mo"):
     try:
         stock = yf.Ticker(ticker.upper())
         hist = stock.history(period=period)
-
         if hist.empty:
             raise HTTPException(status_code=404, detail="No data found")
-
         data = []
         for date, row in hist.iterrows():
             data.append({
@@ -165,22 +126,19 @@ def get_chart(ticker: str, period: str = "6mo"):
                 "price": round(row["Close"], 2),
                 "volume": int(row["Volume"]),
             })
-
         return {"ticker": ticker.upper(), "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-    @app.get("/news/{ticker}")
+
+
+@app.get("/news/{ticker}")
 def get_news(ticker: str):
-    """Fetch recent news headlines for a ticker."""
     try:
-        from datetime import timedelta
         end = datetime.now().strftime("%Y-%m-%d")
         start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-
         url = f"https://finnhub.io/api/v1/company-news?symbol={ticker.upper()}&from={start}&to={end}&token={FINNHUB_API_KEY}"
         res = requests.get(url, timeout=10)
         data = res.json()
-
         articles = []
         for item in data[:5]:
             articles.append({
@@ -190,7 +148,6 @@ def get_news(ticker: str):
                 "summary": item.get("summary", "")[:200],
                 "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y"),
             })
-
         return {"ticker": ticker.upper(), "articles": articles}
     except Exception as e:
         return {"ticker": ticker.upper(), "articles": []}
