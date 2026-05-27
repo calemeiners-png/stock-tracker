@@ -67,6 +67,7 @@ def get_stock(ticker: str):
         
         # Try fast_info first — more reliable
         try:
+            stock = yf.Ticker(ticker)
             fast = stock.fast_info
             price = fast.last_price
             prev_close = fast.previous_close
@@ -190,28 +191,27 @@ def get_news(ticker: str):
 
 @app.get("/volume-spikes")
 def volume_spikes(threshold: float = 3.0):
+    import concurrent.futures
     results = []
-    for ticker in SCAN_LIST:
+
+    def check_ticker(ticker):
         try:
             stock = yf.Ticker(ticker)
             fast = stock.fast_info
-
             price = fast.last_price
             prev_close = fast.previous_close
-            name = ticker
             volume = fast.last_volume
             avg_volume = fast.three_month_average_volume
 
             if not price or not volume or not avg_volume:
-                continue
+                return None
 
             volume_ratio = volume / avg_volume
-
             if volume_ratio >= threshold:
                 change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
-                results.append({
+                return {
                     "ticker": ticker,
-                    "name": name,
+                    "name": ticker,
                     "price": round(price, 2),
                     "change_pct": round(change_pct, 2),
                     "volume": int(volume),
@@ -219,8 +219,19 @@ def volume_spikes(threshold: float = 3.0):
                     "volume_ratio": round(volume_ratio, 2),
                     "direction": "up" if change_pct > 0 else "down",
                     "scanned_at": datetime.now().isoformat(),
-                })
+                }
         except Exception:
-            continue
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(check_ticker, ticker): ticker for ticker in SCAN_LIST}
+        for future in concurrent.futures.as_completed(futures, timeout=60):
+            try:
+                result = future.result(timeout=3)
+                if result:
+                    results.append(result)
+            except Exception:
+                continue
+
     results.sort(key=lambda x: x["volume_ratio"], reverse=True)
     return {"spikes": results, "total": len(results), "scanned": len(SCAN_LIST)}
