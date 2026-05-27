@@ -4,7 +4,7 @@ import { supabase } from "./supabase";
 
 const API = "https://stock-tracker-6acy.onrender.com";
 
-function Auth({ onLogin }) {
+function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -35,30 +35,11 @@ function Auth({ onLogin }) {
         <div style={styles.card}>
           <h2 style={styles.sectionTitle}>{isSignUp ? "Create Account" : "Sign In"}</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <input
-              style={styles.input}
-              placeholder="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            />
-            <input
-              style={styles.input}
-              placeholder="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            />
+            <input style={styles.input} placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+            <input style={styles.input} placeholder="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
             {error && <p style={styles.error}>{error}</p>}
-            <button style={styles.button} onClick={handleSubmit}>
-              {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
-            </button>
-            <button
-              style={{ ...styles.button, background: "transparent", border: "1px solid #334155", color: "#94a3b8" }}
-              onClick={() => setIsSignUp(!isSignUp)}
-            >
+            <button style={styles.button} onClick={handleSubmit}>{loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}</button>
+            <button style={{ ...styles.button, background: "transparent", border: "1px solid #334155", color: "#94a3b8" }} onClick={() => setIsSignUp(!isSignUp)}>
               {isSignUp ? "Already have an account? Sign In" : "No account? Sign Up"}
             </button>
           </div>
@@ -107,9 +88,9 @@ function App() {
     "Defense": ["BA", "LMT", "RTX", "NOC", "GD", "HON", "GE", "CAT", "DE", "MMM"],
   };
 
-  const getSector = (ticker) => {
+  const getSector = (t) => {
     for (const [sector, tickers] of Object.entries(SECTORS)) {
-      if (tickers.includes(ticker)) return sector;
+      if (tickers.includes(t)) return sector;
     }
     return "Other";
   };
@@ -122,7 +103,6 @@ function App() {
 
   const availableSectors = ["all", ...Object.keys(SECTORS), "Other"];
 
-  // Check auth state on load
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -132,29 +112,19 @@ function App() {
     });
   }, []);
 
-  // Load watchlist and alerts from Supabase when user logs in
   useEffect(() => {
-    if (user) {
-      loadWatchlist();
-      loadAlerts();
-    }
+    if (!user) return;
+    const loadWatchlist = async () => {
+      const { data } = await supabase.from("watchlists").select("*").eq("user_id", user.id);
+      if (data) setWatchlist(data);
+    };
+    const loadAlerts = async () => {
+      const { data } = await supabase.from("alerts").select("*").eq("user_id", user.id);
+      if (data) setAlerts(data);
+    };
+    loadWatchlist();
+    loadAlerts();
   }, [user]);
-
-  const loadWatchlist = async () => {
-    const { data } = await supabase
-      .from("watchlists")
-      .select("*")
-      .eq("user_id", user.id);
-    if (data) setWatchlist(data);
-  };
-
-  const loadAlerts = async () => {
-    const { data } = await supabase
-      .from("alerts")
-      .select("*")
-      .eq("user_id", user.id);
-    if (data) setAlerts(data);
-  };
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
@@ -183,7 +153,7 @@ function App() {
             }
             setTriggeredAlerts((prev) => [...prev, { ...alert, currentPrice: price }]);
             await supabase.from("alerts").delete().eq("id", alert.id);
-            loadAlerts();
+            setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
           }
         } catch (e) {
           continue;
@@ -192,7 +162,7 @@ function App() {
     };
     const interval = setInterval(checkAlerts, 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchStock = async (symbol) => {
     setLoading(true);
@@ -250,12 +220,11 @@ function App() {
   };
 
   useEffect(() => {
-    if (tab === "scanner") {
-      scanMarket();
-      const interval = setInterval(scanMarket, 5 * 60 * 1000);
-      return () => clearInterval(interval);
-    }
-  }, [tab]);
+    if (tab !== "scanner") return;
+    scanMarket();
+    const interval = setInterval(scanMarket, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addToWatchlist = async () => {
     if (!stockData || watchlist.find((s) => s.ticker === stockData.ticker)) return;
@@ -346,16 +315,8 @@ function App() {
         {tab === "watchlist" && (
           <div>
             <div style={styles.searchBox}>
-              <input
-                style={styles.input}
-                placeholder="Enter ticker (e.g. AAPL, TSLA, SPY)"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === "Enter" && fetchStock(ticker)}
-              />
-              <button style={styles.button} onClick={() => fetchStock(ticker)}>
-                {loading ? "Loading..." : "Search"}
-              </button>
+              <input style={styles.input} placeholder="Enter ticker (e.g. AAPL, TSLA, SPY)" value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && fetchStock(ticker)} />
+              <button style={styles.button} onClick={() => fetchStock(ticker)}>{loading ? "Loading..." : "Search"}</button>
             </div>
 
             {error && <p style={styles.error}>{error}</p>}
@@ -375,24 +336,12 @@ function App() {
                   </div>
                 </div>
                 <div style={styles.statsRow}>
-                  <div style={styles.stat}>
-                    <div style={styles.statLabel}>Volume</div>
-                    <div style={styles.statValue}>{formatVolume(stockData.volume)}</div>
-                  </div>
-                  <div style={styles.stat}>
-                    <div style={styles.statLabel}>Market Cap</div>
-                    <div style={styles.statValue}>{formatCap(stockData.market_cap)}</div>
-                  </div>
+                  <div style={styles.stat}><div style={styles.statLabel}>Volume</div><div style={styles.statValue}>{formatVolume(stockData.volume)}</div></div>
+                  <div style={styles.stat}><div style={styles.statLabel}>Market Cap</div><div style={styles.statValue}>{formatCap(stockData.market_cap)}</div></div>
                 </div>
                 <div style={styles.periodRow}>
                   {periods.map((p) => (
-                    <button
-                      key={p}
-                      style={{ ...styles.periodBtn, ...(chartPeriod === p ? styles.periodActive : {}) }}
-                      onClick={() => { setChartPeriod(p); fetchChart(stockData.ticker, p); }}
-                    >
-                      {p}
-                    </button>
+                    <button key={p} style={{ ...styles.periodBtn, ...(chartPeriod === p ? styles.periodActive : {}) }} onClick={() => { setChartPeriod(p); fetchChart(stockData.ticker, p); }}>{p}</button>
                   ))}
                 </div>
                 {loadingChart && <div style={styles.chartLoading}>Loading chart...</div>}
@@ -425,9 +374,7 @@ function App() {
               </div>
             )}
 
-            {watchlist.length === 0 && !stockData && (
-              <div style={styles.empty}>Search for a stock above and add it to your watchlist</div>
-            )}
+            {watchlist.length === 0 && !stockData && <div style={styles.empty}>Search for a stock above and add it to your watchlist</div>}
 
             {watchlist.length > 0 && (
               <div style={styles.watchlist}>
@@ -458,9 +405,7 @@ function App() {
                 <p style={styles.scanInfo}>Scanning <strong style={{ color: "#f1f5f9" }}>200+ stocks & ETFs</strong> for moves greater than 2%</p>
                 {lastScanned && <p style={styles.scanTime}>Last scanned: {lastScanned} · Auto-refreshes every 5 min</p>}
               </div>
-              <button style={styles.button} onClick={scanMarket} disabled={scanning}>
-                {scanning ? "Scanning..." : "🔍 Scan Now"}
-              </button>
+              <button style={styles.button} onClick={scanMarket} disabled={scanning}>{scanning ? "Scanning..." : "🔍 Scan Now"}</button>
             </div>
 
             {movers.length > 0 && (
@@ -469,18 +414,7 @@ function App() {
                   <div style={styles.filterLabel}>Direction</div>
                   <div style={styles.filterRow}>
                     {["all", "up", "down"].map((d) => (
-                      <button
-                        key={d}
-                        style={{
-                          ...styles.filterBtn,
-                          ...(directionFilter === d ? {
-                            background: d === "up" ? "#22c55e" : d === "down" ? "#ef4444" : "#3b82f6",
-                            color: "#fff",
-                            border: "none"
-                          } : {})
-                        }}
-                        onClick={() => setDirectionFilter(d)}
-                      >
+                      <button key={d} style={{ ...styles.filterBtn, ...(directionFilter === d ? { background: d === "up" ? "#22c55e" : d === "down" ? "#ef4444" : "#3b82f6", color: "#fff", border: "none" } : {}) }} onClick={() => setDirectionFilter(d)}>
                         {d === "all" ? "All" : d === "up" ? "▲ Up" : "▼ Down"}
                       </button>
                     ))}
@@ -490,14 +424,7 @@ function App() {
                   <div style={styles.filterLabel}>Sector</div>
                   <div style={styles.filterRowWrap}>
                     {availableSectors.map((s) => (
-                      <button
-                        key={s}
-                        style={{
-                          ...styles.filterBtn,
-                          ...(sectorFilter === s ? { background: "#3b82f6", color: "#fff", border: "none" } : {})
-                        }}
-                        onClick={() => setSectorFilter(s)}
-                      >
+                      <button key={s} style={{ ...styles.filterBtn, ...(sectorFilter === s ? { background: "#3b82f6", color: "#fff", border: "none" } : {}) }} onClick={() => setSectorFilter(s)}>
                         {s === "all" ? "All Sectors" : s}
                       </button>
                     ))}
