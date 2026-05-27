@@ -1,9 +1,75 @@
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { supabase } from "./supabase";
 
 const API = "https://stock-tracker-6acy.onrender.com";
 
+function Auth({ onLogin }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+      }
+    } catch (e) {
+      setError(e.message);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div style={styles.app}>
+      <div style={{ ...styles.container, maxWidth: "400px" }}>
+        <h1 style={styles.title}>📈 Stock Tracker</h1>
+        <div style={styles.card}>
+          <h2 style={styles.sectionTitle}>{isSignUp ? "Create Account" : "Sign In"}</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <input
+              style={styles.input}
+              placeholder="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+            <input
+              style={styles.input}
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            />
+            {error && <p style={styles.error}>{error}</p>}
+            <button style={styles.button} onClick={handleSubmit}>
+              {loading ? "Loading..." : isSignUp ? "Create Account" : "Sign In"}
+            </button>
+            <button
+              style={{ ...styles.button, background: "transparent", border: "1px solid #334155", color: "#94a3b8" }}
+              onClick={() => setIsSignUp(!isSignUp)}
+            >
+              {isSignUp ? "Already have an account? Sign In" : "No account? Sign Up"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
+  const [user, setUser] = useState(null);
   const [tab, setTab] = useState("watchlist");
   const [ticker, setTicker] = useState("");
   const [stockData, setStockData] = useState(null);
@@ -12,9 +78,8 @@ function App() {
   const [loadingChart, setLoadingChart] = useState(false);
   const [news, setNews] = useState([]);
   const [loadingNews, setLoadingNews] = useState(false);
-  const savedWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
-  const [watchlist, setWatchlist] = useState(savedWatchlist);
-  const [alerts, setAlerts] = useState(JSON.parse(localStorage.getItem("alerts") || "[]"));
+  const [watchlist, setWatchlist] = useState([]);
+  const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
   const [movers, setMovers] = useState([]);
   const [scanning, setScanning] = useState(false);
@@ -57,6 +122,40 @@ function App() {
 
   const availableSectors = ["all", ...Object.keys(SECTORS), "Other"];
 
+  // Check auth state on load
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+  }, []);
+
+  // Load watchlist and alerts from Supabase when user logs in
+  useEffect(() => {
+    if (user) {
+      loadWatchlist();
+      loadAlerts();
+    }
+  }, [user]);
+
+  const loadWatchlist = async () => {
+    const { data } = await supabase
+      .from("watchlists")
+      .select("*")
+      .eq("user_id", user.id);
+    if (data) setWatchlist(data);
+  };
+
+  const loadAlerts = async () => {
+    const { data } = await supabase
+      .from("alerts")
+      .select("*")
+      .eq("user_id", user.id);
+    if (data) setAlerts(data);
+  };
+
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
@@ -74,18 +173,17 @@ function App() {
           const price = data.price;
           if (!price) continue;
           const triggered =
-            (alert.direction === "above" && price >= alert.targetPrice) ||
-            (alert.direction === "below" && price <= alert.targetPrice);
+            (alert.direction === "above" && price >= alert.target_price) ||
+            (alert.direction === "below" && price <= alert.target_price);
           if (triggered) {
             if (Notification.permission === "granted") {
               new Notification(`🔔 ${alert.ticker} Alert!`, {
-                body: `${alert.ticker} is now $${price.toFixed(2)} — your target of $${alert.targetPrice} was hit!`,
+                body: `${alert.ticker} is now $${price.toFixed(2)} — your target of $${alert.target_price} was hit!`,
               });
             }
             setTriggeredAlerts((prev) => [...prev, { ...alert, currentPrice: price }]);
-            const updated = alertsRef.current.filter((a) => a.id !== alert.id);
-            setAlerts(updated);
-            localStorage.setItem("alerts", JSON.stringify(updated));
+            await supabase.from("alerts").delete().eq("id", alert.id);
+            loadAlerts();
           }
         } catch (e) {
           continue;
@@ -159,40 +257,48 @@ function App() {
     }
   }, [tab]);
 
-  const addToWatchlist = () => {
-    if (stockData && !watchlist.find((s) => s.ticker === stockData.ticker)) {
-      const updated = [...watchlist, stockData];
-      setWatchlist(updated);
-      localStorage.setItem("watchlist", JSON.stringify(updated));
-    }
+  const addToWatchlist = async () => {
+    if (!stockData || watchlist.find((s) => s.ticker === stockData.ticker)) return;
+    const newItem = {
+      user_id: user.id,
+      ticker: stockData.ticker,
+      name: stockData.name,
+      price: stockData.price,
+      change_pct: stockData.change_pct,
+    };
+    const { data } = await supabase.from("watchlists").insert(newItem).select();
+    if (data) setWatchlist([...watchlist, ...data]);
   };
 
-  const removeFromWatchlist = (ticker) => {
-    const updated = watchlist.filter((s) => s.ticker !== ticker);
-    setWatchlist(updated);
-    localStorage.setItem("watchlist", JSON.stringify(updated));
+  const removeFromWatchlist = async (id) => {
+    await supabase.from("watchlists").delete().eq("id", id);
+    setWatchlist(watchlist.filter((s) => s.id !== id));
   };
 
-  const addAlert = () => {
+  const addAlert = async () => {
     if (!alertTicker || !alertPrice) return;
     const newAlert = {
-      id: Date.now(),
+      user_id: user.id,
       ticker: alertTicker.toUpperCase(),
-      targetPrice: parseFloat(alertPrice),
+      target_price: parseFloat(alertPrice),
       direction: alertDirection,
-      createdAt: new Date().toLocaleString(),
+      created_at: new Date().toLocaleString(),
     };
-    const updated = [...alerts, newAlert];
-    setAlerts(updated);
-    localStorage.setItem("alerts", JSON.stringify(updated));
+    const { data } = await supabase.from("alerts").insert(newAlert).select();
+    if (data) setAlerts([...alerts, ...data]);
     setAlertTicker("");
     setAlertPrice("");
   };
 
-  const removeAlert = (id) => {
-    const updated = alerts.filter((a) => a.id !== id);
-    setAlerts(updated);
-    localStorage.setItem("alerts", JSON.stringify(updated));
+  const removeAlert = async (id) => {
+    await supabase.from("alerts").delete().eq("id", id);
+    setAlerts(alerts.filter((a) => a.id !== id));
+  };
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setWatchlist([]);
+    setAlerts([]);
   };
 
   const formatPrice = (p) => (p ? `$${p.toFixed(2)}` : "N/A");
@@ -209,14 +315,22 @@ function App() {
   const chartColor = isUp ? "#22c55e" : "#ef4444";
   const periods = ["1mo", "3mo", "6mo", "1y", "2y"];
 
+  if (!user) return <Auth />;
+
   return (
     <div style={styles.app}>
       <div style={styles.container}>
-        <h1 style={styles.title}>📈 Stock Tracker</h1>
+        <div style={styles.topBar}>
+          <h1 style={styles.title}>📈 Stock Tracker</h1>
+          <div style={styles.userBar}>
+            <span style={styles.userEmail}>{user.email}</span>
+            <button style={styles.signOutBtn} onClick={handleSignOut}>Sign Out</button>
+          </div>
+        </div>
 
         {triggeredAlerts.map((a) => (
           <div key={a.id} style={styles.alertBanner}>
-            🔔 <strong>{a.ticker}</strong> hit your target of ${a.targetPrice}! Current: ${a.currentPrice?.toFixed(2)}
+            🔔 <strong>{a.ticker}</strong> hit your target of ${a.target_price}! Current: ${a.currentPrice?.toFixed(2)}
             <button style={styles.dismissBtn} onClick={() => setTriggeredAlerts((prev) => prev.filter((t) => t.id !== a.id))}>✕</button>
           </div>
         ))}
@@ -295,7 +409,6 @@ function App() {
                     </ResponsiveContainer>
                   </div>
                 )}
-
                 {loadingNews && <div style={styles.chartLoading}>Loading news...</div>}
                 {!loadingNews && news.length > 0 && (
                   <div style={{ marginBottom: "1rem" }}>
@@ -308,7 +421,6 @@ function App() {
                     ))}
                   </div>
                 )}
-
                 <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
               </div>
             )}
@@ -321,7 +433,7 @@ function App() {
               <div style={styles.watchlist}>
                 <h2 style={styles.sectionTitle}>Your Watchlist</h2>
                 {watchlist.map((s) => (
-                  <div key={s.ticker} style={styles.watchItem}>
+                  <div key={s.id} style={styles.watchItem}>
                     <div>
                       <div style={styles.watchTicker}>{s.ticker}</div>
                       <div style={styles.watchName}>{s.name}</div>
@@ -330,7 +442,7 @@ function App() {
                       <div style={styles.watchPrice}>{formatPrice(s.price)}</div>
                       <div style={{ color: s.change_pct >= 0 ? "#22c55e" : "#ef4444", fontSize: "0.85rem" }}>{formatPct(s.change_pct)}</div>
                       <button style={styles.addSmallBtn} onClick={() => fetchStock(s.ticker)}>Chart</button>
-                      <button style={styles.removeBtn} onClick={() => removeFromWatchlist(s.ticker)}>✕</button>
+                      <button style={styles.removeBtn} onClick={() => removeFromWatchlist(s.id)}>✕</button>
                     </div>
                   </div>
                 ))}
@@ -395,10 +507,7 @@ function App() {
             )}
 
             {scanning && <div style={styles.scanning}>⏳ Scanning market... this takes 45-60 seconds with 200+ stocks</div>}
-
-            {!scanning && movers.length === 0 && lastScanned && (
-              <div style={styles.empty}>No significant movers found right now.</div>
-            )}
+            {!scanning && movers.length === 0 && lastScanned && <div style={styles.empty}>No significant movers found right now.</div>}
 
             {filteredMovers.length > 0 && (
               <div style={styles.watchlist}>
@@ -412,27 +521,20 @@ function App() {
                     <div>
                       <div style={styles.watchTicker}>{s.ticker}</div>
                       <div style={styles.watchName}>{s.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
-                        {getSector(s.ticker)} · Volume: {s.volume_ratio}x avg
-                      </div>
+                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>{getSector(s.ticker)} · Volume: {s.volume_ratio}x avg</div>
                     </div>
                     <div style={styles.watchRight}>
                       <div style={styles.watchPrice}>${s.price}</div>
                       <div style={{ fontSize: "1rem", fontWeight: "700", color: s.direction === "up" ? "#22c55e" : "#ef4444" }}>
                         {s.direction === "up" ? "▲" : "▼"} {formatPct(s.change_pct)}
                       </div>
-                      <button style={styles.addSmallBtn} onClick={() => { setStockData(s); fetchChart(s.ticker, chartPeriod); setTab("watchlist"); }}>
-                        Chart
-                      </button>
+                      <button style={styles.addSmallBtn} onClick={() => { setStockData(s); fetchChart(s.ticker, chartPeriod); setTab("watchlist"); }}>Chart</button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            {!scanning && movers.length > 0 && filteredMovers.length === 0 && (
-              <div style={styles.empty}>No movers match your current filters.</div>
-            )}
+            {!scanning && movers.length > 0 && filteredMovers.length === 0 && <div style={styles.empty}>No movers match your current filters.</div>}
           </div>
         )}
 
@@ -461,8 +563,8 @@ function App() {
                   <div key={a.id} style={styles.watchItem}>
                     <div>
                       <div style={styles.watchTicker}>{a.ticker}</div>
-                      <div style={styles.watchName}>Notify when price goes <strong>{a.direction}</strong> ${a.targetPrice}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Set: {a.createdAt}</div>
+                      <div style={styles.watchName}>Notify when price goes <strong>{a.direction}</strong> ${a.target_price}</div>
+                      <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Set: {a.created_at}</div>
                     </div>
                     <button style={styles.removeBtn} onClick={() => removeAlert(a.id)}>✕</button>
                   </div>
@@ -479,7 +581,11 @@ function App() {
 const styles = {
   app: { minHeight: "100vh", background: "#0f172a", padding: "2rem 1rem" },
   container: { maxWidth: "700px", margin: "0 auto" },
-  title: { color: "#f1f5f9", fontSize: "2rem", marginBottom: "1.5rem", textAlign: "center" },
+  topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" },
+  title: { color: "#f1f5f9", fontSize: "2rem", margin: 0 },
+  userBar: { display: "flex", alignItems: "center", gap: "1rem" },
+  userEmail: { color: "#64748b", fontSize: "0.85rem" },
+  signOutBtn: { padding: "0.4rem 0.75rem", borderRadius: "6px", border: "1px solid #334155", background: "transparent", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer" },
   tabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem" },
   tab: { flex: 1, padding: "0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "1rem", cursor: "pointer" },
   tabActive: { background: "#3b82f6", color: "#fff", border: "1px solid #3b82f6" },
