@@ -66,6 +66,10 @@ function App() {
   const [loadingInsider, setLoadingInsider] = useState(false);
   const [insiderFeed, setInsiderFeed] = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(false);
+  const [week52Data, setWeek52Data] = useState({});
+  const [loadingWeek52, setLoadingWeek52] = useState(false);
+  const [week52Data, setWeek52Data] = useState({});
+  const [loadingWeek52, setLoadingWeek52] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
@@ -243,6 +247,18 @@ function App() {
     setLoadingFeed(false);
   };
 
+  const fetchWeek52 = async () => {
+    setLoadingWeek52(true);
+    try {
+      const res = await fetch(`${API}/week52`);
+      const data = await res.json();
+      setWeek52Data(data);
+    } catch (e) {
+      setWeek52Data({});
+    }
+    setLoadingWeek52(false);
+  };
+
   const scanMarket = async () => {
     setScanning(true);
     try {
@@ -366,6 +382,8 @@ function App() {
           <button style={{ ...styles.tab, ...(tab === "watchlist" ? styles.tabActive : {}) }} onClick={() => setTab("watchlist")}>⭐ Watchlist</button>
           <button style={{ ...styles.tab, ...(tab === "scanner" ? styles.tabActive : {}) }} onClick={() => setTab("scanner")}>🔍 Scanner</button>
           <button style={{ ...styles.tab, ...(tab === "insider" ? styles.tabActive : {}) }} onClick={() => { setTab("insider"); if (insiderFeed.length === 0) fetchInsiderFeed(); }}>🏛️ Insider</button>
+          <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
+          <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
           <button style={{ ...styles.tab, ...(tab === "alerts" ? styles.tabActive : {}) }} onClick={() => setTab("alerts")}>
             🔔 Alerts {alerts.length > 0 && <span style={styles.badge}>{alerts.length}</span>}
           </button>
@@ -654,6 +672,74 @@ function App() {
           </div>
         )}
 
+        {/* 52-WEEK TAB */}
+        {tab === "week52" && (
+          <div>
+            <div style={styles.scanHeader}>
+              <div>
+                <p style={styles.scanInfo}>Stocks within <strong style={{ color: "#f1f5f9" }}>5%</strong> of their 52-week high or low</p>
+                <p style={styles.scanTime}>Scanned {week52Data.scanned || 0} stocks</p>
+              </div>
+              <button style={styles.button} onClick={fetchWeek52} disabled={loadingWeek52}>
+                {loadingWeek52 ? "Scanning..." : "🔄 Refresh"}
+              </button>
+            </div>
+
+            {loadingWeek52 && <div style={styles.scanning}>⏳ Scanning 52-week highs and lows...</div>}
+
+            {!loadingWeek52 && week52Data.near_highs && week52Data.near_highs.length > 0 && (
+              <div style={{ marginBottom: "1.5rem" }}>
+                <div style={styles.watchlist}>
+                  <h2 style={{ ...styles.sectionTitle, color: "#22c55e" }}>
+                    🚀 {week52Data.total_highs} Near 52-Week Highs
+                  </h2>
+                  {week52Data.near_highs.map((s) => (
+                    <div key={s.ticker} style={styles.watchItem}>
+                      <div>
+                        <div style={styles.watchTicker}>{s.ticker}</div>
+                        <div style={styles.watchName}>52w High: ${s.high_52} · Low: ${s.low_52}</div>
+                      </div>
+                      <div style={styles.watchRight}>
+                        <div style={styles.watchPrice}>${s.price}</div>
+                        <div style={{ fontSize: "0.85rem", color: "#22c55e", fontWeight: "700" }}>
+                          {s.pct_from_high === 0 ? "AT HIGH" : `${s.pct_from_high}% from high`}
+                        </div>
+                        <button style={styles.addSmallBtn} onClick={() => { fetchStock(s.ticker); setTab("watchlist"); }}>Chart</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!loadingWeek52 && week52Data.near_lows && week52Data.near_lows.length > 0 && (
+              <div style={styles.watchlist}>
+                <h2 style={{ ...styles.sectionTitle, color: "#ef4444" }}>
+                  📉 {week52Data.total_lows} Near 52-Week Lows
+                </h2>
+                {week52Data.near_lows.map((s) => (
+                  <div key={s.ticker} style={styles.watchItem}>
+                    <div>
+                      <div style={styles.watchTicker}>{s.ticker}</div>
+                      <div style={styles.watchName}>52w High: ${s.high_52} · Low: ${s.low_52}</div>
+                    </div>
+                    <div style={styles.watchRight}>
+                      <div style={styles.watchPrice}>${s.price}</div>
+                      <div style={{ fontSize: "0.85rem", color: "#ef4444", fontWeight: "700" }}>
+                        {s.pct_from_low === 0 ? "AT LOW" : `+${s.pct_from_low}% from low`}
+                      </div>
+                      <button style={styles.addSmallBtn} onClick={() => { fetchStock(s.ticker); setTab("watchlist"); }}>Chart</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!loadingWeek52 && !week52Data.near_highs && (
+              <div style={styles.empty}>Click Refresh to scan for 52-week highs and lows.</div>
+            )}
+          </div>
+        )}
         {/* ALERTS TAB */}
         {tab === "alerts" && (
           <div>
