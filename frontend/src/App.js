@@ -68,7 +68,6 @@ function App() {
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [week52Data, setWeek52Data] = useState({});
   const [loadingWeek52, setLoadingWeek52] = useState(false);
-  const [loadingWeek52, setLoadingWeek52] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
