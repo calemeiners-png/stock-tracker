@@ -381,7 +381,6 @@ function App() {
           <button style={{ ...styles.tab, ...(tab === "scanner" ? styles.tabActive : {}) }} onClick={() => setTab("scanner")}>🔍 Scanner</button>
           <button style={{ ...styles.tab, ...(tab === "insider" ? styles.tabActive : {}) }} onClick={() => { setTab("insider"); if (insiderFeed.length === 0) fetchInsiderFeed(); }}>🏛️ Insider</button>
           <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
-          <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
           <button style={{ ...styles.tab, ...(tab === "alerts" ? styles.tabActive : {}) }} onClick={() => setTab("alerts")}>
             🔔 Alerts {alerts.length > 0 && <span style={styles.badge}>{alerts.length}</span>}
           </button>
