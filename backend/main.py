@@ -430,3 +430,69 @@ def get_market():
         result[category] = [prices[t] for t in tickers if t in prices]
 
     return result
+
+
+@app.get("/52week")
+def week52():
+    """
+    Scan for stocks near or at 52-week highs or lows.
+    Near high = within 5% of 52-week high
+    Near low = within 5% of 52-week low
+    """
+    results_high = []
+    results_low = []
+
+    def check_ticker(ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            fast = stock.fast_info
+            price = fast.last_price
+            high_52 = fast.year_high
+            low_52 = fast.year_low
+
+            if not price or not high_52 or not low_52:
+                return None
+
+            pct_from_high = ((price - high_52) / high_52) * 100
+            pct_from_low = ((price - low_52) / low_52) * 100
+
+            return {
+                "ticker": ticker,
+                "price": round(price, 2),
+                "high_52": round(high_52, 2),
+                "low_52": round(low_52, 2),
+                "pct_from_high": round(pct_from_high, 2),
+                "pct_from_low": round(pct_from_low, 2),
+            }
+        except Exception:
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(check_ticker, t): t for t in SCAN_LIST}
+        for future in concurrent.futures.as_completed(futures, timeout=120):
+            try:
+                result = future.result(timeout=5)
+                if not result:
+                    continue
+
+                # Near 52-week high (within 5%)
+                if result["pct_from_high"] >= -5:
+                    results_high.append({**result, "signal": "near_high"})
+
+                # Near 52-week low (within 5%)
+                if result["pct_from_low"] <= 5:
+                    results_low.append({**result, "signal": "near_low"})
+
+            except Exception:
+                continue
+
+    results_high.sort(key=lambda x: x["pct_from_high"], reverse=True)
+    results_low.sort(key=lambda x: x["pct_from_low"])
+
+    return {
+        "near_highs": results_high,
+        "near_lows": results_low,
+        "total_highs": len(results_high),
+        "total_lows": len(results_low),
+        "scanned": len(SCAN_LIST),
+    }
