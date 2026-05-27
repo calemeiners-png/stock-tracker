@@ -239,16 +239,14 @@ function App() {
 
   useEffect(() => {
     if (tab !== "scanner") return;
-    if (scannerTab === "movers") {
-      scanMarket();
-      const interval = setInterval(scanMarket, 5 * 60 * 1000);
-      return () => clearInterval(interval);
+    let interval;
+    if (scannerTab === "movers" && lastScanned) {
+      interval = setInterval(scanMarket, 5 * 60 * 1000);
     }
-    if (scannerTab === "volume") {
-      scanVolumeSpikes();
-      const interval = setInterval(scanVolumeSpikes, 5 * 60 * 1000);
-      return () => clearInterval(interval);
+    if (scannerTab === "volume" && lastScannedSpikes) {
+      interval = setInterval(scanVolumeSpikes, 5 * 60 * 1000);
     }
+    return () => clearInterval(interval);
   }, [tab, scannerTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addToWatchlist = async () => {
