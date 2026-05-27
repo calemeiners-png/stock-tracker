@@ -61,22 +61,57 @@ def get_stock(ticker: str):
     ticker = ticker.strip().upper()
     if not ticker:
         raise HTTPException(status_code=400, detail="Ticker symbol required")
-    stock = yf.Ticker(ticker)
+    
     try:
-        info = stock.info or {}
-    except Exception:
-        info = {}
-    price = info.get("currentPrice") or info.get("regularMarketPrice")
-    change_pct = info.get("52WeekChange")
-    name = info.get("longName") or info.get("shortName") or ticker
-    return {
-        "ticker": ticker,
-        "name": name,
-        "price": price,
-        "change_pct": change_pct,
-        "volume": info.get("volume"),
-        "market_cap": info.get("marketCap"),
-    }
+        stock = yf.Ticker(ticker)
+        
+        # Try fast_info first — more reliable
+        try:
+            fast = stock.fast_info
+            price = fast.last_price
+            prev_close = fast.previous_close
+            market_cap = fast.market_cap
+            volume = fast.three_month_average_volume
+            change_pct = ((price - prev_close) / prev_close) if price and prev_close else None
+            name = ticker
+            
+            # Try to get name from info
+            try:
+                info = stock.info or {}
+                name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                pass
+            
+            return {
+                "ticker": ticker,
+                "name": name,
+                "price": round(price, 2) if price else None,
+                "change_pct": round(change_pct, 4) if change_pct else None,
+                "volume": int(volume) if volume else None,
+                "market_cap": int(market_cap) if market_cap else None,
+            }
+        except Exception:
+            pass
+
+        # Fallback to history
+        hist = stock.history(period="2d")
+        if not hist.empty and len(hist) >= 1:
+            price = round(hist["Close"].iloc[-1], 2)
+            prev_close = round(hist["Close"].iloc[-2], 2) if len(hist) >= 2 else price
+            volume = int(hist["Volume"].iloc[-1])
+            change_pct = round((price - prev_close) / prev_close, 4) if prev_close else None
+            return {
+                "ticker": ticker,
+                "name": ticker,
+                "price": price,
+                "change_pct": change_pct,
+                "volume": volume,
+                "market_cap": None,
+            }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    raise HTTPException(status_code=404, detail="No data found")
 
 
 @app.get("/scan")
@@ -159,15 +194,19 @@ def volume_spikes(threshold: float = 3.0):
     for ticker in SCAN_LIST:
         try:
             stock = yf.Ticker(ticker)
-            info = stock.info or {}
-            price = info.get("currentPrice") or info.get("regularMarketPrice")
-            prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
-            name = info.get("longName") or info.get("shortName") or ticker
-            volume = info.get("volume") or 0
-            avg_volume = info.get("averageVolume") or 1
+            fast = stock.fast_info
+
+            price = fast.last_price
+            prev_close = fast.previous_close
+            name = ticker
+            volume = fast.last_volume
+            avg_volume = fast.three_month_average_volume
+
             if not price or not volume or not avg_volume:
                 continue
+
             volume_ratio = volume / avg_volume
+
             if volume_ratio >= threshold:
                 change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
                 results.append({
@@ -175,8 +214,8 @@ def volume_spikes(threshold: float = 3.0):
                     "name": name,
                     "price": round(price, 2),
                     "change_pct": round(change_pct, 2),
-                    "volume": volume,
-                    "avg_volume": avg_volume,
+                    "volume": int(volume),
+                    "avg_volume": int(avg_volume),
                     "volume_ratio": round(volume_ratio, 2),
                     "direction": "up" if change_pct > 0 else "down",
                     "scanned_at": datetime.now().isoformat(),
