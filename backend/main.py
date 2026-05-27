@@ -432,7 +432,7 @@ def get_market():
     return result
 
 
-@app.get("/52week")
+@app.get("/week52")
 def week52():
     """
     Scan for stocks near or at 52-week highs or lows.
