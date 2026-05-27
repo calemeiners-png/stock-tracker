@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import yfinance as yf
 from datetime import datetime
+import os
+
+FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "d8b7scpr01qk20sq0c70d8b7scpr01qk20sq0c7g")
 
 app = FastAPI()
 
@@ -166,3 +169,29 @@ def get_chart(ticker: str, period: str = "6mo"):
         return {"ticker": ticker.upper(), "data": data}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+    @app.get("/news/{ticker}")
+def get_news(ticker: str):
+    """Fetch recent news headlines for a ticker."""
+    try:
+        from datetime import timedelta
+        end = datetime.now().strftime("%Y-%m-%d")
+        start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
+        
+        url = f"https://finnhub.io/api/v1/company-news?symbol={ticker.upper()}&from={start}&to={end}&token={FINNHUB_API_KEY}"
+        res = requests.get(url, timeout=10)
+        data = res.json()
+        
+        # Return top 5 most recent articles
+        articles = []
+        for item in data[:5]:
+            articles.append({
+                "headline": item.get("headline", ""),
+                "source": item.get("source", ""),
+                "url": item.get("url", ""),
+                "summary": item.get("summary", "")[:200],
+                "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y"),
+            })
+        
+        return {"ticker": ticker.upper(), "articles": articles}
+    except Exception as e:
+        return {"ticker": ticker.upper(), "articles": []}

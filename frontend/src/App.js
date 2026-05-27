@@ -10,6 +10,8 @@ function App() {
   const [chartData, setChartData] = useState([]);
   const [chartPeriod, setChartPeriod] = useState("6mo");
   const [loadingChart, setLoadingChart] = useState(false);
+  const [news, setNews] = useState([]);
+const [loadingNews, setLoadingNews] = useState(false);
   const savedWatchlist = JSON.parse(localStorage.getItem("watchlist") || "[]");
   const [watchlist, setWatchlist] = useState(savedWatchlist);
   const [alerts, setAlerts] = useState(JSON.parse(localStorage.getItem("alerts") || "[]"));
@@ -107,6 +109,7 @@ function App() {
       if (data.detail) throw new Error(data.detail);
       setStockData(data);
       fetchChart(symbol, chartPeriod);
+      fetchNews(symbol);
     } catch (e) {
       setError("Could not find that ticker. Try again.");
     }
@@ -123,6 +126,17 @@ function App() {
       setChartData([]);
     }
     setLoadingChart(false);
+  };
+  const fetchNews = async (symbol) => {
+    setLoadingNews(true);
+    try {
+      const res = await fetch(`${API}/news/${symbol}`);
+      const data = await res.json();
+      setNews(data.articles || []);
+    } catch (e) {
+      setNews([]);
+    }
+    setLoadingNews(false);
   };
 
   const scanMarket = async () => {
@@ -283,7 +297,18 @@ function App() {
                     </ResponsiveContainer>
                   </div>
                 )}
-                <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
+{loadingNews && <div style={styles.chartLoading}>Loading news...</div>}
+{!loadingNews && news.length > 0 && (
+  <div style={{ marginBottom: "1rem" }}>
+    <div style={{ color: "#94a3b8", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>Latest News</div>
+    {news.map((article, i) => (
+      <a key={i} href={article.url} target="_blank" rel="noreferrer" style={styles.newsItem}>
+        <div style={styles.newsHeadline}>{article.headline}</div>
+        <div style={styles.newsMeta}>{article.source} · {article.datetime}</div>
+      </a>
+    ))}
+  </div>
+)}                <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
               </div>
             )}
 
@@ -510,5 +535,8 @@ const styles = {
   filterRowWrap: { display: "flex", gap: "0.5rem", flexWrap: "wrap" },
   filterBtn: { padding: "0.35rem 0.75rem", borderRadius: "6px", border: "1px solid #334155", background: "#0f172a", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer" },
 };
+newsItem: { display: "block", padding: "0.75rem", background: "#0f172a", borderRadius: "8px", marginBottom: "0.5rem", textDecoration: "none", cursor: "pointer", border: "1px solid #334155" },
+  newsHeadline: { color: "#f1f5f9", fontSize: "0.9rem", marginBottom: "4px", lineHeight: "1.4" },
+  newsMeta: { color: "#64748b", fontSize: "0.75rem" },
 
 export default App;
