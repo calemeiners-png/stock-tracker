@@ -523,4 +523,74 @@ def week52():
         "total_highs": len(results_high),
         "total_lows": len(results_low),
         "scanned": len(WEEK52_LIST),
+
+
+@app.get("/gainers-losers")
+def gainers_losers():
+    """
+    Get top 10 gainers and top 10 losers for the day
+    from a broad list of actively traded stocks.
+    """
+    BROAD_LIST = [
+        "SPY", "QQQ", "IWM", "DIA", "ARKK",
+        "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
+        "AVGO", "ORCL", "CRM", "ADBE", "PLTR", "SNOW", "NET", "CRWD",
+        "DDOG", "ZS", "PANW", "MDB", "SHOP", "COIN", "MSTR",
+        "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "PYPL", "SQ",
+        "XOM", "CVX", "COP", "OXY", "SLB", "HAL",
+        "JNJ", "PFE", "LLY", "UNH", "MRNA", "ABBV", "AMGN",
+        "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST",
+        "TSLA", "RIVN", "NIO", "F", "GM", "LCID",
+        "BA", "LMT", "RTX", "HON", "GE", "CAT",
+        "RIOT", "MARA", "HOOD", "SOFI", "UPST", "AFRM",
+        "DIS", "NFLX", "SPOT", "RBLX",
+        "BABA", "PDD", "JD", "BIDU",
+        "GLD", "SLV", "USO", "TLT", "VXX",
+    ]
+    BROAD_LIST = list(dict.fromkeys(BROAD_LIST))
+
+    results = []
+
+    def check_ticker(ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            fast = stock.fast_info
+            price = fast.last_price
+            prev_close = fast.previous_close
+            if not price or not prev_close:
+                return None
+            change_pct = ((price - prev_close) / prev_close) * 100
+            try:
+                info = stock.info
+                name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                name = ticker
+            return {
+                "ticker": ticker,
+                "name": name,
+                "price": round(price, 2),
+                "change_pct": round(change_pct, 2),
+                "direction": "up" if change_pct > 0 else "down",
+            }
+        except Exception:
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(check_ticker, t): t for t in BROAD_LIST}
+        for future in concurrent.futures.as_completed(futures, timeout=60):
+            try:
+                result = future.result(timeout=5)
+                if result:
+                    results.append(result)
+            except Exception:
+                continue
+
+    results.sort(key=lambda x: x["change_pct"], reverse=True)
+    gainers = results[:10]
+    losers = list(reversed(results[-10:]))
+
+    return {
+        "gainers": gainers,
+        "losers": losers,
+        "updated": datetime.now().isoformat(),
     }
