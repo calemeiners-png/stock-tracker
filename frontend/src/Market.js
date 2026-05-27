@@ -117,7 +117,7 @@ export default function Market({ onBack }) {
               <div style={styles.categoryTitle}>
                 {CATEGORY_ICONS[category]} {category}
               </div>
-              {stocks.filter(s => s.ticker.includes(search)).map((stock) => (
+              {stocks.filter(s => s.ticker.includes(search) || (s.name && s.name.toUpperCase().includes(search))).map((stock) => (
                 <div
                   key={stock.ticker}
                   style={{
@@ -128,6 +128,7 @@ export default function Market({ onBack }) {
                 >
                   <div style={styles.stockRowLeft}>
                     <div style={styles.stockRowTicker}>{stock.ticker}</div>
+                  <div style={styles.stockRowName}>{stock.name || ""}</div>
                   </div>
                   <div style={styles.stockRowRight}>
                     <div style={styles.stockRowPrice}>
@@ -294,4 +295,5 @@ const styles = {
   statValue: { color: "#f1f5f9", fontSize: "1rem", fontWeight: "600" },
   searchWrap: { padding: "0.75rem 0.5rem 0.25rem 0.5rem" },
   searchInput: { width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#f1f5f9", fontSize: "0.85rem", outline: "none", boxSizing: "border-box" },
+  stockRowName: { color: "#64748b", fontSize: "0.72rem", marginTop: "1px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "120px" },
 };

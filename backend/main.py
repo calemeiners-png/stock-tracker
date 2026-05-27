@@ -412,8 +412,15 @@ def get_market():
             price = fast.last_price
             prev_close = fast.previous_close
             change_pct = ((price - prev_close) / prev_close) * 100 if price and prev_close else 0
+            # Try to get company name
+            try:
+                info = stock.info
+                name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                name = ticker
             return ticker, {
                 "ticker": ticker,
+                "name": name,
                 "price": round(price, 2) if price else None,
                 "change_pct": round(change_pct, 2) if change_pct else 0,
                 "direction": "up" if change_pct >= 0 else "down",
