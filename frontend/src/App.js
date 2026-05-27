@@ -22,8 +22,41 @@ function App() {
   const [alertTicker, setAlertTicker] = useState("");
   const [alertPrice, setAlertPrice] = useState("");
   const [alertDirection, setAlertDirection] = useState("above");
+
+  // Scanner filters
+  const [directionFilter, setDirectionFilter] = useState("all"); // all, up, down
+  const [sectorFilter, setSectorFilter] = useState("all");
+
   const alertsRef = useRef(alerts);
   alertsRef.current = alerts;
+
+  // Sector mapping
+  const SECTORS = {
+    "Tech": ["AAPL", "MSFT", "NVDA", "GOOGL", "GOOG", "AMZN", "META", "AMD", "INTC", "QCOM", "TXN", "MU", "AMAT", "LRCX", "KLAC", "MRVL", "SMCI", "ARM", "ASML", "CRM", "ADBE", "NOW", "SNOW", "PLTR", "DDOG", "NET", "CRWD", "ZS", "PANW", "OKTA", "MDB", "GTLB", "HUBS", "TEAM", "WDAY", "VEEV", "SHOP", "TWLO", "ZM", "DOCU", "BOX", "DOCN", "AVGO", "ORCL"],
+    "Finance": ["JPM", "BAC", "GS", "MS", "WFC", "C", "BLK", "SCHW", "AXP", "V", "MA", "PYPL", "SQ", "COF", "USB", "PNC", "TFC", "BX", "KKR"],
+    "Energy": ["XOM", "CVX", "COP", "SLB", "OXY", "EOG", "PXD", "MPC", "VLO", "PSX", "HAL", "BKR", "DVN", "FANG", "APA", "HES"],
+    "Health": ["JNJ", "PFE", "UNH", "ABBV", "MRK", "LLY", "BMY", "AMGN", "GILD", "BIIB", "REGN", "VRTX", "MRNA", "BNTX", "ILMN", "DXCM", "ISRG", "SYK", "MDT", "ABT", "TMO", "DHR", "A", "IDXX"],
+    "Consumer": ["WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST", "LOW", "TJX", "BABA", "JD", "PDD", "MELI", "SE", "GRAB", "DASH", "UBER", "LYFT", "ABNB", "BKNG", "EXPE", "MAR", "HLT"],
+    "ETFs": ["SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "ARKK", "ARKW", "ARKG", "XLF", "XLK", "XLE", "XLV", "XLI", "XLB", "XLU", "XLP", "XLY", "GLD", "SLV", "USO", "TLT", "HYG", "LQD", "EEM", "VXX", "SQQQ", "TQQQ", "SPXU", "UVXY", "BITI", "BITO"],
+    "Crypto": ["COIN", "MSTR", "RIOT", "MARA", "CLSK", "CIFR", "HUT"],
+    "Auto & EV": ["TSLA", "F", "GM", "RIVN", "LCID", "NIO", "LI", "XPEV", "FSR"],
+    "Defense": ["BA", "LMT", "RTX", "NOC", "GD", "HON", "GE", "CAT", "DE", "MMM"],
+  };
+
+  const getSector = (ticker) => {
+    for (const [sector, tickers] of Object.entries(SECTORS)) {
+      if (tickers.includes(ticker)) return sector;
+    }
+    return "Other";
+  };
+
+  const filteredMovers = movers.filter((s) => {
+    const directionOk = directionFilter === "all" || s.direction === directionFilter;
+    const sectorOk = sectorFilter === "all" || getSector(s.ticker) === sectorFilter;
+    return directionOk && sectorOk;
+  });
+
+  const availableSectors = ["all", ...Object.keys(SECTORS), "Other"];
 
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
@@ -161,7 +194,6 @@ function App() {
 
   const isUp = chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
   const chartColor = isUp ? "#22c55e" : "#ef4444";
-
   const periods = ["1mo", "3mo", "6mo", "1y", "2y"];
 
   return (
@@ -216,7 +248,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-
                 <div style={styles.statsRow}>
                   <div style={styles.stat}>
                     <div style={styles.statLabel}>Volume</div>
@@ -227,8 +258,6 @@ function App() {
                     <div style={styles.statValue}>{formatCap(stockData.market_cap)}</div>
                   </div>
                 </div>
-
-                {/* Period Selector */}
                 <div style={styles.periodRow}>
                   {periods.map((p) => (
                     <button
@@ -240,50 +269,21 @@ function App() {
                     </button>
                   ))}
                 </div>
-
-                {/* Chart */}
                 {loadingChart && <div style={styles.chartLoading}>Loading chart...</div>}
                 {!loadingChart && chartData.length > 0 && (
                   <div style={styles.chartWrap}>
                     <ResponsiveContainer width="100%" height={200}>
                       <LineChart data={chartData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                        <XAxis
-                          dataKey="date"
-                          tick={{ fill: "#64748b", fontSize: 11 }}
-                          tickLine={false}
-                          interval={Math.floor(chartData.length / 5)}
-                        />
-                        <YAxis
-                          tick={{ fill: "#64748b", fontSize: 11 }}
-                          tickLine={false}
-                          axisLine={false}
-                          domain={["auto", "auto"]}
-                          tickFormatter={(v) => `$${v}`}
-                          width={60}
-                        />
-                        <Tooltip
-                          contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }}
-                          labelStyle={{ color: "#94a3b8" }}
-                          itemStyle={{ color: chartColor }}
-                          formatter={(v) => [`$${v}`, "Price"]}
-                        />
-                        <Line
-                          type="monotone"
-                          dataKey="price"
-                          stroke={chartColor}
-                          strokeWidth={2}
-                          dot={false}
-                          activeDot={{ r: 4, fill: chartColor }}
-                        />
+                        <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} interval={Math.floor(chartData.length / 5)} />
+                        <YAxis tick={{ fill: "#64748b", fontSize: 11 }} tickLine={false} axisLine={false} domain={["auto", "auto"]} tickFormatter={(v) => `$${v}`} width={60} />
+                        <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #334155", borderRadius: "8px" }} labelStyle={{ color: "#94a3b8" }} itemStyle={{ color: chartColor }} formatter={(v) => [`$${v}`, "Price"]} />
+                        <Line type="monotone" dataKey="price" stroke={chartColor} strokeWidth={2} dot={false} activeDot={{ r: 4, fill: chartColor }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 )}
-
-                <button style={styles.addButton} onClick={addToWatchlist}>
-                  + Add to Watchlist
-                </button>
+                <button style={styles.addButton} onClick={addToWatchlist}>+ Add to Watchlist</button>
               </div>
             )}
 
@@ -302,15 +302,8 @@ function App() {
                     </div>
                     <div style={styles.watchRight}>
                       <div style={styles.watchPrice}>{formatPrice(s.price)}</div>
-                      <div style={{ color: s.change_pct >= 0 ? "#22c55e" : "#ef4444", fontSize: "0.85rem" }}>
-                        {formatPct(s.change_pct)}
-                      </div>
-                      <button
-                        style={styles.addSmallBtn}
-                        onClick={() => fetchStock(s.ticker)}
-                      >
-                        Chart
-                      </button>
+                      <div style={{ color: s.change_pct >= 0 ? "#22c55e" : "#ef4444", fontSize: "0.85rem" }}>{formatPct(s.change_pct)}</div>
+                      <button style={styles.addSmallBtn} onClick={() => fetchStock(s.ticker)}>Chart</button>
                       <button style={styles.removeBtn} onClick={() => removeFromWatchlist(s.ticker)}>✕</button>
                     </div>
                   </div>
@@ -325,7 +318,7 @@ function App() {
           <div>
             <div style={styles.scanHeader}>
               <div>
-                <p style={styles.scanInfo}>Scanning <strong style={{ color: "#f1f5f9" }}>50+ stocks & ETFs</strong> for moves greater than 2%</p>
+                <p style={styles.scanInfo}>Scanning <strong style={{ color: "#f1f5f9" }}>200+ stocks & ETFs</strong> for moves greater than 2%</p>
                 {lastScanned && <p style={styles.scanTime}>Last scanned: {lastScanned} · Auto-refreshes every 5 min</p>}
               </div>
               <button style={styles.button} onClick={scanMarket} disabled={scanning}>
@@ -333,21 +326,74 @@ function App() {
               </button>
             </div>
 
-            {scanning && <div style={styles.scanning}>⏳ Scanning market... this takes 20–30 seconds</div>}
+            {/* Filters */}
+            {movers.length > 0 && (
+              <div style={styles.filterSection}>
+                {/* Direction Filter */}
+                <div style={styles.filterGroup}>
+                  <div style={styles.filterLabel}>Direction</div>
+                  <div style={styles.filterRow}>
+                    {["all", "up", "down"].map((d) => (
+                      <button
+                        key={d}
+                        style={{
+                          ...styles.filterBtn,
+                          ...(directionFilter === d ? {
+                            background: d === "up" ? "#22c55e" : d === "down" ? "#ef4444" : "#3b82f6",
+                            color: "#fff",
+                            border: "none"
+                          } : {})
+                        }}
+                        onClick={() => setDirectionFilter(d)}
+                      >
+                        {d === "all" ? "All" : d === "up" ? "▲ Up" : "▼ Down"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sector Filter */}
+                <div style={styles.filterGroup}>
+                  <div style={styles.filterLabel}>Sector</div>
+                  <div style={styles.filterRowWrap}>
+                    {availableSectors.map((s) => (
+                      <button
+                        key={s}
+                        style={{
+                          ...styles.filterBtn,
+                          ...(sectorFilter === s ? { background: "#3b82f6", color: "#fff", border: "none" } : {})
+                        }}
+                        onClick={() => setSectorFilter(s)}
+                      >
+                        {s === "all" ? "All Sectors" : s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {scanning && <div style={styles.scanning}>⏳ Scanning market... this takes 45-60 seconds with 200+ stocks</div>}
 
             {!scanning && movers.length === 0 && lastScanned && (
               <div style={styles.empty}>No significant movers found right now.</div>
             )}
 
-            {movers.length > 0 && (
+            {filteredMovers.length > 0 && (
               <div style={styles.watchlist}>
-                <h2 style={styles.sectionTitle}>🔥 {movers.length} Significant Movers</h2>
-                {movers.map((s) => (
+                <h2 style={styles.sectionTitle}>
+                  🔥 {filteredMovers.length} Movers
+                  {directionFilter !== "all" && ` · ${directionFilter === "up" ? "▲ Up" : "▼ Down"}`}
+                  {sectorFilter !== "all" && ` · ${sectorFilter}`}
+                </h2>
+                {filteredMovers.map((s) => (
                   <div key={s.ticker} style={styles.watchItem}>
                     <div>
                       <div style={styles.watchTicker}>{s.ticker}</div>
                       <div style={styles.watchName}>{s.name}</div>
-                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>Volume: {s.volume_ratio}x average</div>
+                      <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: "2px" }}>
+                        {getSector(s.ticker)} · Volume: {s.volume_ratio}x avg
+                      </div>
                     </div>
                     <div style={styles.watchRight}>
                       <div style={styles.watchPrice}>${s.price}</div>
@@ -362,6 +408,10 @@ function App() {
                 ))}
               </div>
             )}
+
+            {!scanning && movers.length > 0 && filteredMovers.length === 0 && (
+              <div style={styles.empty}>No movers match your current filters.</div>
+            )}
           </div>
         )}
 
@@ -371,23 +421,12 @@ function App() {
             <div style={styles.card}>
               <h2 style={styles.sectionTitle}>🔔 Set a Price Alert</h2>
               <div style={styles.alertForm}>
-                <input
-                  style={styles.input}
-                  placeholder="Ticker (e.g. AAPL)"
-                  value={alertTicker}
-                  onChange={(e) => setAlertTicker(e.target.value.toUpperCase())}
-                />
+                <input style={styles.input} placeholder="Ticker (e.g. AAPL)" value={alertTicker} onChange={(e) => setAlertTicker(e.target.value.toUpperCase())} />
                 <select style={styles.select} value={alertDirection} onChange={(e) => setAlertDirection(e.target.value)}>
                   <option value="above">Goes above</option>
                   <option value="below">Goes below</option>
                 </select>
-                <input
-                  style={styles.input}
-                  placeholder="Target price (e.g. 200)"
-                  type="number"
-                  value={alertPrice}
-                  onChange={(e) => setAlertPrice(e.target.value)}
-                />
+                <input style={styles.input} placeholder="Target price (e.g. 200)" type="number" value={alertPrice} onChange={(e) => setAlertPrice(e.target.value)} />
                 <button style={styles.button} onClick={addAlert}>+ Add Alert</button>
               </div>
               <p style={styles.scanTime}>Alerts check every 60 seconds. Allow browser notifications when prompted.</p>
@@ -452,7 +491,7 @@ const styles = {
   watchPrice: { color: "#f1f5f9", fontWeight: "600" },
   removeBtn: { background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: "1rem" },
   empty: { textAlign: "center", color: "#64748b", padding: "3rem 0", fontSize: "1rem" },
-  scanHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" },
+  scanHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" },
   scanInfo: { color: "#94a3b8", margin: 0, fontSize: "0.95rem" },
   scanTime: { color: "#64748b", margin: "4px 0 0 0", fontSize: "0.8rem" },
   scanning: { textAlign: "center", color: "#94a3b8", padding: "2rem", background: "#1e293b", borderRadius: "12px", fontSize: "1rem" },
@@ -464,6 +503,12 @@ const styles = {
   periodActive: { background: "#3b82f6", color: "#fff", border: "1px solid #3b82f6" },
   chartWrap: { background: "#0f172a", borderRadius: "8px", padding: "1rem", marginBottom: "1rem" },
   chartLoading: { textAlign: "center", color: "#64748b", padding: "2rem", background: "#0f172a", borderRadius: "8px", marginBottom: "1rem" },
+  filterSection: { background: "#1e293b", borderRadius: "12px", padding: "1rem", marginBottom: "1rem", border: "1px solid #334155" },
+  filterGroup: { marginBottom: "0.75rem" },
+  filterLabel: { color: "#64748b", fontSize: "0.8rem", marginBottom: "0.5rem", textTransform: "uppercase", letterSpacing: "0.05em" },
+  filterRow: { display: "flex", gap: "0.5rem" },
+  filterRowWrap: { display: "flex", gap: "0.5rem", flexWrap: "wrap" },
+  filterBtn: { padding: "0.35rem 0.75rem", borderRadius: "6px", border: "1px solid #334155", background: "#0f172a", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer" },
 };
 
 export default App;
