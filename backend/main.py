@@ -149,5 +149,40 @@ def get_news(ticker: str):
                 "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y"),
             })
         return {"ticker": ticker.upper(), "articles": articles}
-    except Exception as e:
+    except Exception:
         return {"ticker": ticker.upper(), "articles": []}
+
+
+@app.get("/volume-spikes")
+def volume_spikes():
+    results = []
+    threshold = 3.0
+    for ticker in SCAN_LIST:
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info or {}
+            price = info.get("currentPrice") or info.get("regularMarketPrice")
+            prev_close = info.get("previousClose") or info.get("regularMarketPreviousClose")
+            name = info.get("longName") or info.get("shortName") or ticker
+            volume = info.get("volume") or 0
+            avg_volume = info.get("averageVolume") or 1
+            if not price or not volume or not avg_volume:
+                continue
+            volume_ratio = volume / avg_volume
+            if volume_ratio >= threshold:
+                change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
+                results.append({
+                    "ticker": ticker,
+                    "name": name,
+                    "price": round(price, 2),
+                    "change_pct": round(change_pct, 2),
+                    "volume": volume,
+                    "avg_volume": avg_volume,
+                    "volume_ratio": round(volume_ratio, 2),
+                    "direction": "up" if change_pct > 0 else "down",
+                    "scanned_at": datetime.now().isoformat(),
+                })
+        except Exception:
+            continue
+    results.sort(key=lambda x: x["volume_ratio"], reverse=True)
+    return {"spikes": results, "total": len(results), "scanned": len(SCAN_LIST)}
