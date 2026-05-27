@@ -265,3 +265,98 @@ def volume_spikes(threshold: float = 3.0):
 
     results.sort(key=lambda x: x["volume_ratio"], reverse=True)
     return {"spikes": results, "total": len(results), "scanned": len(VOLUME_SCAN_LIST)}
+
+
+@app.get("/insider/{ticker}")
+def get_insider_trades(ticker: str):
+    """Fetch recent insider trades for a ticker from Finnhub."""
+    try:
+        url = f"https://finnhub.io/api/v1/stock/insider-transactions?symbol={ticker.upper()}&token={FINNHUB_API_KEY}"
+        res = requests.get(url, timeout=10)
+        data = res.json()
+
+        trades = []
+        for item in data.get("data", [])[:10]:
+            shares = item.get("share", 0)
+            price = item.get("price", 0)
+            value = round(shares * price) if shares and price else 0
+            trade_type = item.get("transactionCode", "")
+
+            # Simplify transaction codes
+            if trade_type in ("P", "Buy"):
+                action = "buy"
+            elif trade_type in ("S", "Sell"):
+                action = "sell"
+            else:
+                action = trade_type.lower()
+
+            trades.append({
+                "name": item.get("name", "Unknown"),
+                "title": item.get("position", ""),
+                "action": action,
+                "shares": shares,
+                "price": price,
+                "value": value,
+                "date": item.get("transactionDate", ""),
+                "filing_date": item.get("filingDate", ""),
+            })
+
+        return {"ticker": ticker.upper(), "trades": trades}
+    except Exception as e:
+        return {"ticker": ticker.upper(), "trades": []}
+
+
+@app.get("/insider-feed")
+def insider_feed():
+    """Get recent insider trades across all major stocks."""
+    try:
+        # Finnhub provides a general insider transactions endpoint
+        tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL",
+                   "JPM", "BAC", "GS", "XOM", "CVX", "UNH", "LLY", "V", "MA"]
+        all_trades = []
+
+        def fetch_insider(ticker):
+            try:
+                url = f"https://finnhub.io/api/v1/stock/insider-transactions?symbol={ticker}&token={FINNHUB_API_KEY}"
+                res = requests.get(url, timeout=10)
+                data = res.json()
+                trades = []
+                for item in data.get("data", [])[:3]:
+                    shares = item.get("share", 0)
+                    price = item.get("price", 0)
+                    value = round(shares * price) if shares and price else 0
+                    trade_type = item.get("transactionCode", "")
+                    if trade_type in ("P", "Buy"):
+                        action = "buy"
+                    elif trade_type in ("S", "Sell"):
+                        action = "sell"
+                    else:
+                        action = trade_type.lower()
+                    if action in ("buy", "sell"):
+                        trades.append({
+                            "ticker": ticker,
+                            "name": item.get("name", "Unknown"),
+                            "title": item.get("position", ""),
+                            "action": action,
+                            "shares": shares,
+                            "price": price,
+                            "value": value,
+                            "date": item.get("transactionDate", ""),
+                        })
+                return trades
+            except Exception:
+                return []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = {executor.submit(fetch_insider, t): t for t in tickers}
+            for future in concurrent.futures.as_completed(futures, timeout=30):
+                try:
+                    result = future.result(timeout=5)
+                    all_trades.extend(result)
+                except Exception:
+                    continue
+
+        all_trades.sort(key=lambda x: x.get("date", ""), reverse=True)
+        return {"trades": all_trades[:30]}
+    except Exception as e:
+        return {"trades": []}
