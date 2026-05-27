@@ -475,8 +475,15 @@ def week52():
             pct_from_high = ((price - high_52) / high_52) * 100
             pct_from_low = ((price - low_52) / low_52) * 100
 
+            # Try to get company name
+            try:
+                info = yf.Ticker(ticker).info
+                name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                name = ticker
             return {
                 "ticker": ticker,
+                "name": name,
                 "price": round(price, 2),
                 "high_52": round(high_52, 2),
                 "low_52": round(low_52, 2),

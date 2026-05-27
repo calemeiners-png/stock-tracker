@@ -694,7 +694,7 @@ function App() {
                     <div key={s.ticker} style={styles.watchItem}>
                       <div>
                         <div style={styles.watchTicker}>{s.ticker}</div>
-                        <div style={styles.watchName}>52w High: ${s.high_52} · Low: ${s.low_52}</div>
+                        <div style={styles.watchName}>{s.name} · High: ${s.high_52} · Low: ${s.low_52}</div>
                       </div>
                       <div style={styles.watchRight}>
                         <div style={styles.watchPrice}>${s.price}</div>
@@ -718,7 +718,7 @@ function App() {
                   <div key={s.ticker} style={styles.watchItem}>
                     <div>
                       <div style={styles.watchTicker}>{s.ticker}</div>
-                      <div style={styles.watchName}>52w High: ${s.high_52} · Low: ${s.low_52}</div>
+                      <div style={styles.watchName}>{s.name} · High: ${s.high_52} · Low: ${s.low_52}</div>
                     </div>
                     <div style={styles.watchRight}>
                       <div style={styles.watchPrice}>${s.price}</div>
