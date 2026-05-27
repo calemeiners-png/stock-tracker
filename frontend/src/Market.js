@@ -16,6 +16,7 @@ const CATEGORY_ICONS = {
 
 export default function Market({ onBack }) {
   const [marketData, setMarketData] = useState({});
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedTicker, setSelectedTicker] = useState("SPY");
   const [chartData, setChartData] = useState([]);
@@ -102,13 +103,21 @@ export default function Market({ onBack }) {
       <div style={styles.layout}>
         {/* Left Panel — Stock List */}
         <div style={styles.leftPanel}>
+          <div style={styles.searchWrap}>
+            <input
+              style={styles.searchInput}
+              placeholder="Search ticker..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value.toUpperCase())}
+            />
+          </div>
           {loading && <div style={styles.loadingText}>Loading market data...</div>}
           {Object.entries(marketData).map(([category, stocks]) => (
             <div key={category} style={styles.category}>
               <div style={styles.categoryTitle}>
                 {CATEGORY_ICONS[category]} {category}
               </div>
-              {stocks.map((stock) => (
+              {stocks.filter(s => s.ticker.includes(search)).map((stock) => (
                 <div
                   key={stock.ticker}
                   style={{
@@ -283,4 +292,6 @@ const styles = {
   stat: { flex: 1, background: "#1e293b", borderRadius: "8px", padding: "1rem" },
   statLabel: { color: "#64748b", fontSize: "0.8rem", marginBottom: "4px" },
   statValue: { color: "#f1f5f9", fontSize: "1rem", fontWeight: "600" },
+  searchWrap: { padding: "0.75rem 0.5rem 0.25rem 0.5rem" },
+  searchInput: { width: "100%", padding: "0.5rem 0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#f1f5f9", fontSize: "0.85rem", outline: "none", boxSizing: "border-box" },
 };
