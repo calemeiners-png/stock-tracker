@@ -154,9 +154,8 @@ def get_news(ticker: str):
 
 
 @app.get("/volume-spikes")
-def volume_spikes():
+def volume_spikes(threshold: float = 3.0):
     results = []
-    threshold = 3.0
     for ticker in SCAN_LIST:
         try:
             stock = yf.Ticker(ticker)
