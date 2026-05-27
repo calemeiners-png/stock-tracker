@@ -157,9 +157,15 @@ def scan_market():
         change_pct = ((price - prev_close) / prev_close) * 100
         volume_ratio = volume / avg_volume if avg_volume else 1
         if abs(change_pct) >= threshold:
+            # Try to get company name
+            try:
+                info = yf.Ticker(ticker).info
+                name = info.get("longName") or info.get("shortName") or ticker
+            except Exception:
+                name = ticker
             return {
                 "ticker": ticker,
-                "name": ticker,
+                "name": name,
                 "price": round(price, 2),
                 "change_pct": round(change_pct, 2),
                 "volume_ratio": round(volume_ratio, 2),
