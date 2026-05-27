@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-const API = "http://127.0.0.1:8000";
+const API = "https://stock-tracker-6acy.onrender.com";
 
 function App() {
   const [tab, setTab] = useState("watchlist");
