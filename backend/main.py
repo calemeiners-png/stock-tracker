@@ -373,7 +373,7 @@ def insider_feed():
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = {executor.submit(fetch_insider, t): t for t in tickers}
-            for future in concurrent.futures.as_completed(futures, timeout=30):
+            for future in concurrent.futures.as_completed(futures, timeout=60):
                 try:
                     result = future.result(timeout=5)
                     all_trades.extend(result)
