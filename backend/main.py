@@ -176,12 +176,11 @@ def get_news(ticker: str):
         from datetime import timedelta
         end = datetime.now().strftime("%Y-%m-%d")
         start = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-        
+
         url = f"https://finnhub.io/api/v1/company-news?symbol={ticker.upper()}&from={start}&to={end}&token={FINNHUB_API_KEY}"
         res = requests.get(url, timeout=10)
         data = res.json()
-        
-        # Return top 5 most recent articles
+
         articles = []
         for item in data[:5]:
             articles.append({
@@ -191,7 +190,7 @@ def get_news(ticker: str):
                 "summary": item.get("summary", "")[:200],
                 "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y"),
             })
-        
+
         return {"ticker": ticker.upper(), "articles": articles}
     except Exception as e:
         return {"ticker": ticker.upper(), "articles": []}
