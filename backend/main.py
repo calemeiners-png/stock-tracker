@@ -51,6 +51,21 @@ SCAN_LIST = [
 
 SCAN_LIST = list(dict.fromkeys(SCAN_LIST))
 
+# Focused list for faster volume spike scanning
+VOLUME_SCAN_LIST = [
+    "SPY", "QQQ", "TQQQ", "SQQQ", "UVXY", "VXX",
+    "AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "GOOGL", "AMD",
+    "PLTR", "COIN", "MSTR", "RIOT", "MARA",
+    "JPM", "BAC", "GS", "V", "MA",
+    "XOM", "CVX", "OXY",
+    "ZS", "CRWD", "NET", "PANW", "SNOW", "DDOG",
+    "SOFI", "HOOD", "UPST", "AFRM",
+    "NIO", "RIVN", "LCID", "F", "GM",
+    "JNJ", "PFE", "MRNA", "LLY", "UNH",
+    "BABA", "PDD", "JD", "BIDU",
+    "ARKK", "GLD", "SLV", "USO",
+]
+
 
 def fetch_ticker_data(ticker):
     try:
@@ -239,7 +254,7 @@ def volume_spikes(threshold: float = 3.0):
         return None
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        future_to_ticker = {executor.submit(check_ticker, t): t for t in SCAN_LIST}
+        future_to_ticker = {executor.submit(check_ticker, t): t for t in VOLUME_SCAN_LIST}
         for future in concurrent.futures.as_completed(future_to_ticker, timeout=120):
             try:
                 result = future.result(timeout=5)
@@ -249,4 +264,4 @@ def volume_spikes(threshold: float = 3.0):
                 continue
 
     results.sort(key=lambda x: x["volume_ratio"], reverse=True)
-    return {"spikes": results, "total": len(results), "scanned": len(SCAN_LIST)}
+    return {"spikes": results, "total": len(results), "scanned": len(VOLUME_SCAN_LIST)}
