@@ -5,6 +5,72 @@ import Market from "./Market";
 
 const API = "https://stock-tracker-6acy.onrender.com";
 
+const NAMES = {
+  "AAPL": "Apple Inc.", "MSFT": "Microsoft", "NVDA": "NVIDIA", "GOOGL": "Alphabet (Google)",
+  "GOOG": "Alphabet (Google)", "AMZN": "Amazon", "META": "Meta Platforms", "TSLA": "Tesla",
+  "AVGO": "Broadcom", "ORCL": "Oracle", "AMD": "Advanced Micro Devices", "INTC": "Intel",
+  "QCOM": "Qualcomm", "TXN": "Texas Instruments", "MU": "Micron Technology",
+  "AMAT": "Applied Materials", "LRCX": "Lam Research", "KLAC": "KLA Corporation",
+  "MRVL": "Marvell Technology", "SMCI": "Super Micro Computer", "ARM": "Arm Holdings",
+  "ASML": "ASML Holding", "CRM": "Salesforce", "ADBE": "Adobe", "NOW": "ServiceNow",
+  "SNOW": "Snowflake", "PLTR": "Palantir", "DDOG": "Datadog", "NET": "Cloudflare",
+  "CRWD": "CrowdStrike", "ZS": "Zscaler", "PANW": "Palo Alto Networks", "OKTA": "Okta",
+  "MDB": "MongoDB", "GTLB": "GitLab", "HUBS": "HubSpot", "TEAM": "Atlassian",
+  "WDAY": "Workday", "VEEV": "Veeva Systems", "SHOP": "Shopify", "TWLO": "Twilio",
+  "ZM": "Zoom", "DOCU": "DocuSign", "BOX": "Box", "DOCN": "DigitalOcean",
+  "JPM": "JPMorgan Chase", "BAC": "Bank of America", "GS": "Goldman Sachs",
+  "MS": "Morgan Stanley", "WFC": "Wells Fargo", "C": "Citigroup", "BLK": "BlackRock",
+  "SCHW": "Charles Schwab", "AXP": "American Express", "V": "Visa", "MA": "Mastercard",
+  "PYPL": "PayPal", "SQ": "Block (Square)", "COF": "Capital One", "USB": "U.S. Bancorp",
+  "PNC": "PNC Financial", "TFC": "Truist Financial", "BX": "Blackstone", "KKR": "KKR",
+  "XOM": "ExxonMobil", "CVX": "Chevron", "COP": "ConocoPhillips", "SLB": "SLB",
+  "OXY": "Occidental Petroleum", "EOG": "EOG Resources", "PXD": "Pioneer Natural Resources",
+  "MPC": "Marathon Petroleum", "VLO": "Valero Energy", "PSX": "Phillips 66",
+  "HAL": "Halliburton", "BKR": "Baker Hughes", "DVN": "Devon Energy", "APA": "APA Corp",
+  "HES": "Hess Corporation", "JNJ": "Johnson & Johnson", "PFE": "Pfizer",
+  "UNH": "UnitedHealth Group", "ABBV": "AbbVie", "MRK": "Merck", "LLY": "Eli Lilly",
+  "BMY": "Bristol-Myers Squibb", "AMGN": "Amgen", "GILD": "Gilead Sciences",
+  "BIIB": "Biogen", "REGN": "Regeneron", "VRTX": "Vertex Pharmaceuticals",
+  "MRNA": "Moderna", "BNTX": "BioNTech", "ILMN": "Illumina", "DXCM": "DexCom",
+  "ISRG": "Intuitive Surgical", "SYK": "Stryker", "MDT": "Medtronic", "ABT": "Abbott",
+  "TMO": "Thermo Fisher", "DHR": "Danaher", "IDXX": "IDEXX Laboratories",
+  "WMT": "Walmart", "HD": "Home Depot", "MCD": "McDonald's", "SBUX": "Starbucks",
+  "NKE": "Nike", "TGT": "Target", "COST": "Costco", "LOW": "Lowe's", "TJX": "TJX Companies",
+  "BABA": "Alibaba", "JD": "JD.com", "PDD": "PDD Holdings", "MELI": "MercadoLibre",
+  "SE": "Sea Limited", "GRAB": "Grab", "DASH": "DoorDash", "UBER": "Uber",
+  "LYFT": "Lyft", "ABNB": "Airbnb", "BKNG": "Booking Holdings", "EXPE": "Expedia",
+  "MAR": "Marriott", "HLT": "Hilton", "DIS": "Disney", "NFLX": "Netflix",
+  "PARA": "Paramount", "WBD": "Warner Bros. Discovery", "CMCSA": "Comcast",
+  "T": "AT&T", "VZ": "Verizon", "TMUS": "T-Mobile", "CHTR": "Charter Communications",
+  "SPOT": "Spotify", "RBLX": "Roblox", "EA": "Electronic Arts", "TTWO": "Take-Two Interactive",
+  "F": "Ford Motor", "GM": "General Motors", "RIVN": "Rivian", "LCID": "Lucid Motors",
+  "NIO": "NIO Inc.", "LI": "Li Auto", "XPEV": "XPeng", "AMT": "American Tower",
+  "PLD": "Prologis", "CCI": "Crown Castle", "EQIX": "Equinix", "SPG": "Simon Property",
+  "O": "Realty Income", "VICI": "VICI Properties", "AVB": "AvalonBay", "EQR": "Equity Residential",
+  "BA": "Boeing", "LMT": "Lockheed Martin", "RTX": "RTX Corporation", "NOC": "Northrop Grumman",
+  "GD": "General Dynamics", "HON": "Honeywell", "GE": "GE Aerospace", "CAT": "Caterpillar",
+  "DE": "Deere & Company", "MMM": "3M", "EMR": "Emerson Electric", "ETN": "Eaton",
+  "ITW": "Illinois Tool Works", "PH": "Parker Hannifin", "ROK": "Rockwell Automation",
+  "COIN": "Coinbase", "MSTR": "MicroStrategy", "RIOT": "Riot Platforms", "MARA": "Marathon Digital",
+  "CLSK": "CleanSpark", "CIFR": "Cipher Mining", "HUT": "Hut 8 Mining",
+  "SOFI": "SoFi Technologies", "HOOD": "Robinhood", "UPST": "Upstart", "AFRM": "Affirm", "LC": "LendingClub",
+  "PLUG": "Plug Power", "FCEL": "FuelCell Energy", "BLNK": "Blink Charging",
+  "CHPT": "ChargePoint", "ENVX": "Enovix", "LAZR": "Luminar Technologies",
+  "JOBY": "Joby Aviation", "ACHR": "Archer Aviation",
+  "SPY": "S&P 500 ETF", "QQQ": "Nasdaq 100 ETF", "IWM": "Russell 2000 ETF",
+  "DIA": "Dow Jones ETF", "VTI": "Vanguard Total Market ETF", "VOO": "Vanguard S&P 500 ETF",
+  "ARKK": "ARK Innovation ETF", "ARKW": "ARK Next Gen ETF", "ARKG": "ARK Genomics ETF",
+  "XLF": "Financial Select ETF", "XLK": "Technology Select ETF", "XLE": "Energy Select ETF",
+  "XLV": "Health Care Select ETF", "XLI": "Industrial Select ETF", "XLB": "Materials Select ETF",
+  "XLU": "Utilities Select ETF", "XLP": "Consumer Staples ETF", "XLY": "Consumer Discretionary ETF",
+  "GLD": "Gold ETF", "SLV": "Silver ETF", "USO": "Oil ETF", "TLT": "20+ Year Treasury ETF",
+  "HYG": "High Yield Bond ETF", "LQD": "Investment Grade Bond ETF", "EEM": "Emerging Markets ETF",
+  "VXX": "Volatility ETF", "SQQQ": "ProShares UltraPro Short QQQ", "TQQQ": "ProShares UltraPro QQQ",
+  "SPXU": "ProShares UltraPro Short S&P500", "UVXY": "ProShares Ultra VIX",
+  "BITI": "ProShares Short Bitcoin ETF", "BITO": "ProShares Bitcoin ETF",
+  "BIDU": "Baidu", "FANG": "Diamondback Energy", "A": "Agilent Technologies",
+};
+
 function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -777,7 +843,7 @@ function App() {
                         <div style={{ color: "#64748b", fontSize: "0.85rem", minWidth: "20px" }}>#{i + 1}</div>
                         <div>
                           <div style={styles.watchTicker}>{s.ticker}</div>
-                          <div style={styles.watchName}>{s.name}</div>
+                          <div style={styles.watchName}>{NAMES[s.ticker] || s.name || s.ticker}</div>
                         </div>
                       </div>
                       <div style={styles.watchRight}>
@@ -799,7 +865,7 @@ function App() {
                         <div style={{ color: "#64748b", fontSize: "0.85rem", minWidth: "20px" }}>#{i + 1}</div>
                         <div>
                           <div style={styles.watchTicker}>{s.ticker}</div>
-                          <div style={styles.watchName}>{s.name}</div>
+                          <div style={styles.watchName}>{NAMES[s.ticker] || s.name || s.ticker}</div>
                         </div>
                       </div>
                       <div style={styles.watchRight}>
