@@ -66,20 +66,17 @@ VOLUME_SCAN_LIST = [
 ]
 
 BROAD_LIST = [
-    "SPY", "QQQ", "IWM", "DIA", "ARKK",
+    "SPY", "QQQ", "IWM", "ARKK",
     "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
-    "AVGO", "ORCL", "CRM", "ADBE", "PLTR", "SNOW", "NET", "CRWD",
-    "DDOG", "ZS", "PANW", "MDB", "SHOP", "COIN", "MSTR",
-    "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "PYPL", "SQ",
-    "XOM", "CVX", "COP", "OXY", "SLB", "HAL",
-    "JNJ", "PFE", "LLY", "UNH", "MRNA", "ABBV", "AMGN",
-    "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST",
-    "RIVN", "NIO", "F", "GM", "LCID",
-    "BA", "LMT", "RTX", "HON", "GE", "CAT",
-    "RIOT", "MARA", "HOOD", "SOFI", "UPST", "AFRM",
-    "DIS", "NFLX", "SPOT", "RBLX",
-    "BABA", "PDD", "JD", "BIDU",
-    "GLD", "SLV", "USO", "TLT", "VXX",
+    "PLTR", "CRWD", "SNOW", "COIN",
+    "JPM", "BAC", "GS", "V", "MA",
+    "XOM", "CVX", "OXY",
+    "JNJ", "LLY", "UNH", "MRNA",
+    "WMT", "HD", "MCD", "NKE",
+    "RIVN", "NIO", "F", "GM",
+    "RIOT", "MARA", "HOOD", "SOFI",
+    "DIS", "NFLX", "SPOT",
+    "GLD", "TLT", "VXX",
 ]
 
 BROAD_LIST = list(dict.fromkeys(BROAD_LIST))
@@ -547,7 +544,7 @@ def gainers_losers():
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = {executor.submit(check_ticker, t): t for t in BROAD_LIST}
-        for future in concurrent.futures.as_completed(futures, timeout=60):
+        for future in concurrent.futures.as_completed(futures, timeout=90):
             try:
                 result = future.result(timeout=5)
                 if result:
