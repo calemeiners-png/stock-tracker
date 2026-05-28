@@ -68,6 +68,8 @@ function App() {
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [week52Data, setWeek52Data] = useState({});
   const [loadingWeek52, setLoadingWeek52] = useState(false);
+  const [gainersLosers, setGainersLosers] = useState({});
+  const [loadingGL, setLoadingGL] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
@@ -257,6 +259,18 @@ function App() {
     setLoadingWeek52(false);
   };
 
+  const fetchGainersLosers = async () => {
+    setLoadingGL(true);
+    try {
+      const res = await fetch(`${API}/gainers-losers`);
+      const data = await res.json();
+      setGainersLosers(data);
+    } catch (e) {
+      setGainersLosers({});
+    }
+    setLoadingGL(false);
+  };
+
   const scanMarket = async () => {
     setScanning(true);
     try {
@@ -381,6 +395,7 @@ function App() {
           <button style={{ ...styles.tab, ...(tab === "scanner" ? styles.tabActive : {}) }} onClick={() => setTab("scanner")}>🔍 Scanner</button>
           <button style={{ ...styles.tab, ...(tab === "insider" ? styles.tabActive : {}) }} onClick={() => { setTab("insider"); if (insiderFeed.length === 0) fetchInsiderFeed(); }}>🏛️ Insider</button>
           <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
+          <button style={{ ...styles.tab, ...(tab === "gainers" ? styles.tabActive : {}) }} onClick={() => { setTab("gainers"); if (!gainersLosers.gainers) fetchGainersLosers(); }}>🏆 Gainers</button>
           <button style={{ ...styles.tab, ...(tab === "alerts" ? styles.tabActive : {}) }} onClick={() => setTab("alerts")}>
             🔔 Alerts {alerts.length > 0 && <span style={styles.badge}>{alerts.length}</span>}
           </button>
@@ -737,7 +752,75 @@ function App() {
             )}
           </div>
         )}
-        {/* ALERTS TAB */}
+        {/* GAINERS LOSERS TAB */}
+        {tab === "gainers" && (
+          <div>
+            <div style={styles.scanHeader}>
+              <div>
+                <p style={styles.scanInfo}>Top <strong style={{ color: "#f1f5f9" }}>10 gainers</strong> and <strong style={{ color: "#f1f5f9" }}>10 losers</strong> today</p>
+                {gainersLosers.updated && <p style={styles.scanTime}>Updated: {new Date(gainersLosers.updated).toLocaleTimeString()}</p>}
+              </div>
+              <button style={styles.button} onClick={fetchGainersLosers} disabled={loadingGL}>
+                {loadingGL ? "Loading..." : "🔄 Refresh"}
+              </button>
+            </div>
+
+            {loadingGL && <div style={styles.scanning}>⏳ Loading gainers and losers...</div>}
+
+            {!loadingGL && gainersLosers.gainers && (
+              <div>
+                <div style={{ ...styles.watchlist, marginBottom: "1.5rem" }}>
+                  <h2 style={{ ...styles.sectionTitle, color: "#22c55e" }}>🚀 Top Gainers</h2>
+                  {gainersLosers.gainers.map((s, i) => (
+                    <div key={s.ticker} style={styles.watchItem}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{ color: "#64748b", fontSize: "0.85rem", minWidth: "20px" }}>#{i + 1}</div>
+                        <div>
+                          <div style={styles.watchTicker}>{s.ticker}</div>
+                          <div style={styles.watchName}>{s.name}</div>
+                        </div>
+                      </div>
+                      <div style={styles.watchRight}>
+                        <div style={styles.watchPrice}>${s.price}</div>
+                        <div style={{ fontSize: "1rem", fontWeight: "700", color: "#22c55e" }}>
+                          ▲ +{s.change_pct}%
+                        </div>
+                        <button style={styles.addSmallBtn} onClick={() => { fetchStock(s.ticker); setTab("watchlist"); }}>Chart</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div style={styles.watchlist}>
+                  <h2 style={{ ...styles.sectionTitle, color: "#ef4444" }}>📉 Top Losers</h2>
+                  {gainersLosers.losers.map((s, i) => (
+                    <div key={s.ticker} style={styles.watchItem}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div style={{ color: "#64748b", fontSize: "0.85rem", minWidth: "20px" }}>#{i + 1}</div>
+                        <div>
+                          <div style={styles.watchTicker}>{s.ticker}</div>
+                          <div style={styles.watchName}>{s.name}</div>
+                        </div>
+                      </div>
+                      <div style={styles.watchRight}>
+                        <div style={styles.watchPrice}>${s.price}</div>
+                        <div style={{ fontSize: "1rem", fontWeight: "700", color: "#ef4444" }}>
+                          ▼ {s.change_pct}%
+                        </div>
+                        <button style={styles.addSmallBtn} onClick={() => { fetchStock(s.ticker); setTab("watchlist"); }}>Chart</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!loadingGL && !gainersLosers.gainers && (
+              <div style={styles.empty}>Click Refresh to load today's top gainers and losers.</div>
+            )}
+          </div>
+        )}
+                {/* ALERTS TAB */}
         {tab === "alerts" && (
           <div>
             <div style={styles.card}>
