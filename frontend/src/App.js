@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import Market from "./Market";
 
 const API = "https://stock-tracker-6acy.onrender.com";
+const isMobile = window.innerWidth <= 768;
 
 const NAMES = {
   "AAPL": "Apple Inc.", "MSFT": "Microsoft", "NVDA": "NVIDIA", "GOOGL": "Alphabet (Google)",
@@ -1076,15 +1077,15 @@ const [loadingPolitical, setLoadingPolitical] = useState(false);
 }
 
 const styles = {
-  app: { minHeight: "100vh", background: "#0f172a", padding: "2rem 1rem" },
-  container: { maxWidth: "700px", margin: "0 auto" },
-  topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" },
+  app: { minHeight: "100vh", background: "#0f172a", padding: "1.5rem 1rem" },
+  container: { maxWidth: "1100px", margin: "0 auto" },
+  topBar: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "0.5rem" },
   title: { color: "#f1f5f9", fontSize: "2rem", margin: 0 },
   userBar: { display: "flex", alignItems: "center", gap: "1rem" },
   userEmail: { color: "#64748b", fontSize: "0.85rem" },
   signOutBtn: { padding: "0.4rem 0.75rem", borderRadius: "6px", border: "1px solid #334155", background: "transparent", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer" },
-  tabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem" },
-  tab: { flex: 1, padding: "0.75rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "0.9rem", cursor: "pointer" },
+  tabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "4px", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" },
+  tab: { flexShrink: 0, padding: "0.65rem 0.85rem", borderRadius: "8px", border: "1px solid #334155", background: "#1e293b", color: "#94a3b8", fontSize: "0.85rem", cursor: "pointer", whiteSpace: "nowrap" },
   tabActive: { background: "#3b82f6", color: "#fff", border: "1px solid #3b82f6" },
   badge: { background: "#ef4444", color: "#fff", borderRadius: "999px", padding: "1px 7px", fontSize: "0.75rem", marginLeft: "6px" },
   scannerTabs: { display: "flex", gap: "0.5rem", marginBottom: "1.5rem" },
@@ -1102,7 +1103,7 @@ const styles = {
   priceBlock: { textAlign: "right" },
   price: { color: "#f1f5f9", fontSize: "1.75rem", fontWeight: "700" },
   change: { fontSize: "0.9rem", marginTop: "2px" },
-  statsRow: { display: "flex", gap: "1rem", marginBottom: "1rem" },
+  statsRow: { display: "flex", gap: "1rem", marginBottom: "1rem", flexWrap: "wrap" },
   stat: { flex: 1, background: "#0f172a", borderRadius: "8px", padding: "0.75rem" },
   statLabel: { color: "#64748b", fontSize: "0.8rem", marginBottom: "4px" },
   statValue: { color: "#f1f5f9", fontSize: "1rem", fontWeight: "600" },
@@ -1110,7 +1111,7 @@ const styles = {
   addSmallBtn: { padding: "0.4rem 0.75rem", borderRadius: "6px", border: "none", background: "#3b82f6", color: "#fff", fontSize: "0.8rem", cursor: "pointer", fontWeight: "600" },
   watchlist: { background: "#1e293b", borderRadius: "12px", padding: "1.5rem", border: "1px solid #334155" },
   sectionTitle: { color: "#f1f5f9", fontSize: "1.25rem", marginBottom: "1rem", marginTop: 0 },
-  watchItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #334155" },
+  watchItem: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 0", borderBottom: "1px solid #334155", flexWrap: "wrap", gap: "0.5rem" },
   watchTicker: { color: "#f1f5f9", fontWeight: "700", fontSize: "1rem" },
   watchName: { color: "#64748b", fontSize: "0.85rem" },
   watchRight: { display: "flex", alignItems: "center", gap: "1rem" },
