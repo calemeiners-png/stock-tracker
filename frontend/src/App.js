@@ -234,6 +234,22 @@ function App() {
                 body: `${alert.ticker} is now $${price.toFixed(2)} — your target of $${alert.target_price} was hit!`,
               });
             }
+            // Send email notification
+            try {
+              await fetch(`${API}/send-alert-email`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  ticker: alert.ticker,
+                  target_price: alert.target_price,
+                  current_price: price.toFixed(2),
+                  direction: alert.direction,
+                  email: user.email,
+                }),
+              });
+            } catch (e) {
+              console.log("Email notification failed:", e);
+            }
             setTriggeredAlerts((prev) => [...prev, { ...alert, currentPrice: price }]);
             await supabase.from("alerts").delete().eq("id", alert.id);
             setAlerts((prev) => prev.filter((a) => a.id !== alert.id));
