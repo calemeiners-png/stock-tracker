@@ -51,7 +51,6 @@ SCAN_LIST = [
     "SOFI", "HOOD", "UPST", "AFRM", "LC",
     "PLUG", "FCEL", "BLNK", "CHPT", "ENVX", "LAZR", "JOBY", "ACHR",
 ]
-
 SCAN_LIST = list(dict.fromkeys(SCAN_LIST))
 
 VOLUME_SCAN_LIST = [
@@ -69,19 +68,21 @@ VOLUME_SCAN_LIST = [
 ]
 
 BROAD_LIST = [
-    "SPY", "QQQ", "IWM", "ARKK",
+    "SPY", "QQQ", "IWM", "DIA", "ARKK",
     "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "AMD",
-    "PLTR", "CRWD", "SNOW", "COIN",
-    "JPM", "BAC", "GS", "V", "MA",
-    "XOM", "CVX", "OXY",
-    "JNJ", "LLY", "UNH", "MRNA",
-    "WMT", "HD", "MCD", "NKE",
-    "RIVN", "NIO", "F", "GM",
-    "RIOT", "MARA", "HOOD", "SOFI",
-    "DIS", "NFLX", "SPOT",
-    "GLD", "TLT", "VXX",
+    "AVGO", "ORCL", "CRM", "ADBE", "PLTR", "SNOW", "NET", "CRWD",
+    "DDOG", "ZS", "PANW", "MDB", "SHOP", "COIN", "MSTR",
+    "JPM", "BAC", "GS", "MS", "WFC", "V", "MA", "PYPL", "SQ",
+    "XOM", "CVX", "COP", "OXY", "SLB", "HAL",
+    "JNJ", "PFE", "LLY", "UNH", "MRNA", "ABBV", "AMGN",
+    "WMT", "HD", "MCD", "SBUX", "NKE", "TGT", "COST",
+    "RIVN", "NIO", "F", "GM", "LCID",
+    "BA", "LMT", "RTX", "HON", "GE", "CAT",
+    "RIOT", "MARA", "HOOD", "SOFI", "UPST", "AFRM",
+    "DIS", "NFLX", "SPOT", "RBLX",
+    "BABA", "PDD", "JD", "BIDU",
+    "GLD", "SLV", "USO", "TLT", "VXX",
 ]
-
 BROAD_LIST = list(dict.fromkeys(BROAD_LIST))
 
 NAMES = {
@@ -188,10 +189,10 @@ def get_stock(ticker: str):
             market_cap = fast.market_cap
             volume = fast.three_month_average_volume
             change_pct = ((price - prev_close) / prev_close) if price and prev_close else None
-            name = ticker
+            name = NAMES.get(ticker, ticker)
             try:
                 info = stock.info or {}
-                name = info.get("longName") or info.get("shortName") or ticker
+                name = info.get("longName") or info.get("shortName") or name
             except Exception:
                 pass
             return {
@@ -212,7 +213,7 @@ def get_stock(ticker: str):
             change_pct = round((price - prev_close) / prev_close, 4) if prev_close else None
             return {
                 "ticker": ticker,
-                "name": ticker,
+                "name": NAMES.get(ticker, ticker),
                 "price": price,
                 "change_pct": change_pct,
                 "volume": volume,
@@ -241,14 +242,9 @@ def scan_market():
         change_pct = ((price - prev_close) / prev_close) * 100
         volume_ratio = volume / avg_volume if avg_volume else 1
         if abs(change_pct) >= threshold:
-            try:
-                info = yf.Ticker(ticker).info
-                name = info.get("longName") or info.get("shortName") or ticker
-            except Exception:
-                name = ticker
             return {
                 "ticker": ticker,
-                "name": name,
+                "name": NAMES.get(ticker, ticker),
                 "price": round(price, 2),
                 "change_pct": round(change_pct, 2),
                 "volume_ratio": round(volume_ratio, 2),
@@ -340,7 +336,7 @@ def volume_spikes(threshold: float = 3.0):
             change_pct = ((price - prev_close) / prev_close) * 100 if prev_close else 0
             return {
                 "ticker": ticker,
-                "name": ticker,
+                "name": NAMES.get(ticker, ticker),
                 "price": round(price, 2),
                 "change_pct": round(change_pct, 2),
                 "volume": int(volume),
@@ -439,7 +435,7 @@ def insider_feed():
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = {executor.submit(fetch_insider, t): t for t in tickers}
-            for future in concurrent.futures.as_completed(futures, timeout=60):
+            for future in concurrent.futures.as_completed(futures, timeout=30):
                 try:
                     result = future.result(timeout=5)
                     all_trades.extend(result)
@@ -485,14 +481,9 @@ def week52():
                 return None
             pct_from_high = ((price - high_52) / high_52) * 100
             pct_from_low = ((price - low_52) / low_52) * 100
-            try:
-                info = stock.info
-                name = info.get("longName") or info.get("shortName") or ticker
-            except Exception:
-                name = ticker
             return {
                 "ticker": ticker,
-                "name": name,
+                "name": NAMES.get(ticker, ticker),
                 "price": round(price, 2),
                 "high_52": round(high_52, 2),
                 "low_52": round(low_52, 2),
@@ -551,14 +542,9 @@ def get_market():
             price = fast.last_price
             prev_close = fast.previous_close
             change_pct = ((price - prev_close) / prev_close) * 100 if price and prev_close else 0
-            try:
-                info = stock.info
-                name = info.get("longName") or info.get("shortName") or ticker
-            except Exception:
-                name = ticker
             return ticker, {
                 "ticker": ticker,
-                "name": name,
+                "name": NAMES.get(ticker, ticker),
                 "price": round(price, 2) if price else None,
                 "change_pct": round(change_pct, 2) if change_pct else 0,
                 "direction": "up" if change_pct >= 0 else "down",
@@ -568,7 +554,7 @@ def get_market():
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = {executor.submit(fetch, t): t for t in all_tickers}
-        for future in concurrent.futures.as_completed(futures, timeout=30):
+        for future in concurrent.futures.as_completed(futures, timeout=60):
             try:
                 ticker, data = future.result(timeout=5)
                 if data:
@@ -596,14 +582,9 @@ def gainers_losers():
             if not price or not prev_close:
                 return None
             change_pct = ((price - prev_close) / prev_close) * 100
-            try:
-                info = stock.info
-                name = info.get("longName") or info.get("shortName") or ticker
-            except Exception:
-                name = ticker
             return {
                 "ticker": ticker,
-                "name": name,
+                "name": NAMES.get(ticker, ticker),
                 "price": round(price, 2),
                 "change_pct": round(change_pct, 2),
                 "direction": "up" if change_pct > 0 else "down",
@@ -631,14 +612,67 @@ def gainers_losers():
         "updated": datetime.now().isoformat(),
     }
 
+
+@app.get("/gainers-losers/{period}")
+def gainers_losers_period(period: str):
+    period_map = {
+        "1d": "2d",
+        "1w": "5d",
+        "1mo": "1mo",
+        "3mo": "3mo",
+        "1y": "1y",
+    }
+    yf_period = period_map.get(period, "5d")
+    results = []
+
+    def check_ticker(ticker):
+        try:
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period=yf_period)
+            if hist.empty or len(hist) < 2:
+                return None
+            start_price = hist["Close"].iloc[0]
+            end_price = hist["Close"].iloc[-1]
+            change_pct = ((end_price - start_price) / start_price) * 100
+            return {
+                "ticker": ticker,
+                "name": NAMES.get(ticker, ticker),
+                "price": round(end_price, 2),
+                "start_price": round(start_price, 2),
+                "change_pct": round(change_pct, 2),
+                "direction": "up" if change_pct > 0 else "down",
+            }
+        except Exception:
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = {executor.submit(check_ticker, t): t for t in BROAD_LIST}
+        for future in concurrent.futures.as_completed(futures, timeout=90):
+            try:
+                result = future.result(timeout=5)
+                if result:
+                    results.append(result)
+            except Exception:
+                continue
+
+    results.sort(key=lambda x: x["change_pct"], reverse=True)
+    gainers = results[:10]
+    losers = list(reversed(results[-10:]))
+
+    return {
+        "gainers": gainers,
+        "losers": losers,
+        "period": period,
+        "updated": datetime.now().isoformat(),
+    }
+
+
 @app.get("/market-news")
 def market_news():
-    """Fetch top market news from Finnhub."""
     try:
         url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_API_KEY}"
         res = requests.get(url, timeout=10)
         data = res.json()
-
         articles = []
         for item in data[:20]:
             articles.append({
@@ -649,14 +683,13 @@ def market_news():
                 "image": item.get("image", ""),
                 "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y %I:%M %p"),
             })
-
         return {"articles": articles, "updated": datetime.now().isoformat()}
-    except Exception as e:
+    except Exception:
         return {"articles": [], "updated": datetime.now().isoformat()}
-    
+
+
 @app.post("/send-alert-email")
 def send_alert_email(data: dict):
-    """Send an email when a price alert triggers."""
     try:
         ticker = data.get("ticker", "")
         target_price = data.get("target_price", "")
@@ -686,72 +719,6 @@ def send_alert_email(data: dict):
                 </div>
             """,
         }
-
-@app.get("/gainers-losers/{period}")
-def gainers_losers_period(period: str):
-    """
-    Get top gainers and losers for a specific period.
-    period: 1d, 1w, 1mo, 3mo, 1y
-    """
-    period_map = {
-        "1d": "2d",
-        "1w": "5d",
-        "1mo": "1mo",
-        "3mo": "3mo",
-        "1y": "1y",
-    }
-
-    yf_period = period_map.get(period, "5d")
-    results = []
-
-    def check_ticker(ticker):
-        try:
-            stock = yf.Ticker(ticker)
-            hist = stock.history(period=yf_period)
-
-            if hist.empty or len(hist) < 2:
-                return None
-
-            start_price = hist["Close"].iloc[0]
-            end_price = hist["Close"].iloc[-1]
-            change_pct = ((end_price - start_price) / start_price) * 100
-
-            try:
-                name = NAMES.get(ticker, ticker)
-            except Exception:
-                name = ticker
-
-            return {
-                "ticker": ticker,
-                "name": name,
-                "price": round(end_price, 2),
-                "start_price": round(start_price, 2),
-                "change_pct": round(change_pct, 2),
-                "direction": "up" if change_pct > 0 else "down",
-            }
-        except Exception:
-            return None
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
-        futures = {executor.submit(check_ticker, t): t for t in BROAD_LIST}
-        for future in concurrent.futures.as_completed(futures, timeout=90):
-            try:
-                result = future.result(timeout=5)
-                if result:
-                    results.append(result)
-            except Exception:
-                continue
-
-    results.sort(key=lambda x: x["change_pct"], reverse=True)
-    gainers = results[:10]
-    losers = list(reversed(results[-10:]))
-
-    return {
-        "gainers": gainers,
-        "losers": losers,
-        "period": period,
-        "updated": datetime.now().isoformat(),
-    }
 
         email_response = resend.Emails.send(params)
         return {"success": True, "id": email_response.get("id")}
