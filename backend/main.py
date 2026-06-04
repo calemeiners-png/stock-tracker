@@ -5,6 +5,7 @@ import requests
 import concurrent.futures
 from datetime import datetime, timedelta
 import os
+import resend
 
 app = FastAPI()
 
@@ -16,6 +17,8 @@ app.add_middleware(
 )
 
 FINNHUB_API_KEY = os.getenv("FINNHUB_API_KEY", "")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+resend.api_key = RESEND_API_KEY
 
 SCAN_LIST = [
     "SPY", "QQQ", "IWM", "DIA", "VTI", "VOO", "ARKK", "ARKW", "ARKG",
@@ -584,3 +587,41 @@ def market_news():
         return {"articles": articles, "updated": datetime.now().isoformat()}
     except Exception as e:
         return {"articles": [], "updated": datetime.now().isoformat()}
+    
+@app.post("/send-alert-email")
+def send_alert_email(data: dict):
+    """Send an email when a price alert triggers."""
+    try:
+        ticker = data.get("ticker", "")
+        target_price = data.get("target_price", "")
+        current_price = data.get("current_price", "")
+        direction = data.get("direction", "")
+        email = data.get("email", "")
+
+        if not email or not ticker:
+            return {"success": False, "error": "Missing email or ticker"}
+
+        params = {
+            "from": "Stock Tracker <onboarding@resend.dev>",
+            "to": [email],
+            "subject": f"🔔 {ticker} Price Alert Triggered!",
+            "html": f"""
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f1f5f9; padding: 2rem; border-radius: 12px;">
+                    <h1 style="color: #3b82f6;">📈 Stock Tracker Alert</h1>
+                    <p style="font-size: 1.1rem;">Your price alert for <strong>{ticker}</strong> has been triggered!</p>
+                    <div style="background: #1e293b; padding: 1.5rem; border-radius: 8px; margin: 1.5rem 0;">
+                        <p style="margin: 0.5rem 0;"><strong>Stock:</strong> {ticker}</p>
+                        <p style="margin: 0.5rem 0;"><strong>Target Price:</strong> ${target_price}</p>
+                        <p style="margin: 0.5rem 0;"><strong>Current Price:</strong> ${current_price}</p>
+                        <p style="margin: 0.5rem 0;"><strong>Direction:</strong> Went {direction} your target</p>
+                    </div>
+                    <p style="color: #64748b; font-size: 0.85rem;">This alert has been removed from your active alerts.</p>
+                    <a href="https://stock-tracker-smoky-kappa.vercel.app" style="display: inline-block; background: #3b82f6; color: white; padding: 0.75rem 1.5rem; border-radius: 8px; text-decoration: none; margin-top: 1rem;">Open Stock Tracker</a>
+                </div>
+            """,
+        }
+
+        email_response = resend.Emails.send(params)
+        return {"success": True, "id": email_response.get("id")}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
