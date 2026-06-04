@@ -1,3 +1,4 @@
+import './App.css';
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { supabase } from "./supabase";
@@ -97,7 +98,7 @@ function Auth() {
   };
 
   return (
-    <div style={styles.app}>
+    <div style={styles.app} className="app-container">
       <div style={{ ...styles.container, maxWidth: "400px" }}>
         <h1 style={styles.title}>📈 Stock Tracker</h1>
         <div style={styles.card}>
