@@ -139,6 +139,8 @@ function App() {
   const [loadingGL, setLoadingGL] = useState(false);
   const [marketNews, setMarketNews] = useState([]);
   const [loadingNews2, setLoadingNews2] = useState(false);
+  const [politicalNews, setPoliticalNews] = useState([]);
+const [loadingPolitical, setLoadingPolitical] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
@@ -369,6 +371,18 @@ function App() {
     setLoadingNews2(false);
   };
 
+  const fetchPoliticalNews = async () => {
+    setLoadingPolitical(true);
+    try {
+      const res = await fetch(`${API}/political-news`);
+      const data = await res.json();
+      setPoliticalNews(data.articles || []);
+    } catch (e) {
+      setPoliticalNews([]);
+    }
+    setLoadingPolitical(false);
+  };
+
   const scanMarket = async () => {
     setScanning(true);
     try {
@@ -495,6 +509,7 @@ function App() {
           <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
           <button style={{ ...styles.tab, ...(tab === "gainers" ? styles.tabActive : {}) }} onClick={() => { setTab("gainers"); if (!gainersLosers.gainers) fetchGainersLosers(); }}>🏆 Gainers</button>
           <button style={{ ...styles.tab, ...(tab === "news" ? styles.tabActive : {}) }} onClick={() => { setTab("news"); if (marketNews.length === 0) fetchMarketNews(); }}>📰 News</button>
+          <button style={{ ...styles.tab, ...(tab === "political" ? styles.tabActive : {}) }} onClick={() => { setTab("political"); if (politicalNews.length === 0) fetchPoliticalNews(); }}>🏛️ Political</button>
           <button style={{ ...styles.tab, ...(tab === "alerts" ? styles.tabActive : {}) }} onClick={() => setTab("alerts")}>
             🔔 Alerts {alerts.length > 0 && <span style={styles.badge}>{alerts.length}</span>}
           </button>
@@ -956,6 +971,58 @@ function App() {
                       <div style={styles.newsCardHeadline}>{article.headline}</div>
                       {article.summary && (
                         <div style={styles.newsCardSummary}>{article.summary}</div>
+                      )}
+                    </div>
+                    {article.image && (
+                      <img src={article.image} alt="" style={styles.newsCardImage} onError={(e) => e.target.style.display = "none"} />
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+                {/* POLITICAL NEWS TAB */}
+        {tab === "political" && (
+          <div>
+            <div style={styles.scanHeader}>
+              <div>
+                <p style={styles.scanInfo}>Political statements & decisions that <strong style={{ color: "#f1f5f9" }}>move markets</strong></p>
+                <p style={styles.scanTime}>Filtered for political + market relevant news</p>
+              </div>
+              <button style={styles.button} onClick={fetchPoliticalNews} disabled={loadingPolitical}>
+                {loadingPolitical ? "Loading..." : "🔄 Refresh"}
+              </button>
+            </div>
+
+            {loadingPolitical && <div style={styles.scanning}>⏳ Loading political news...</div>}
+
+            {!loadingPolitical && politicalNews.length === 0 && (
+              <div style={styles.empty}>No political market news found right now. Click Refresh to check again.</div>
+            )}
+
+            {politicalNews.length > 0 && (
+              <div>
+                {politicalNews.map((article, i) => (
+                  <a key={i} href={article.url} target="_blank" rel="noreferrer" style={styles.newsCard}>
+                    <div style={styles.newsCardContent}>
+                      <div style={styles.newsCardSource}>{article.source} · {article.datetime}</div>
+                      <div style={styles.newsCardHeadline}>{article.headline}</div>
+                      {article.summary && (
+                        <div style={styles.newsCardSummary}>{article.summary}</div>
+                      )}
+                      {article.mentioned_tickers && article.mentioned_tickers.length > 0 && (
+                        <div style={{ marginTop: "8px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                          {article.mentioned_tickers.map((t) => (
+                            <span
+                              key={t}
+                              style={{ background: "#1d4ed8", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "0.75rem", cursor: "pointer" }}
+                              onClick={(e) => { e.preventDefault(); fetchStock(t); setTab("watchlist"); }}
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                     {article.image && (
