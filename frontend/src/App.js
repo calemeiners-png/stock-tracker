@@ -485,9 +485,9 @@ const [loadingPolitical, setLoadingPolitical] = useState(false);
   if (showMarket) return <Market onBack={() => setShowMarket(false)} />;
 
   return (
-    <div style={styles.app}>
-      <div style={styles.container}>
-        <div style={styles.topBar}>
+    <div style={styles.app} className="app-container">
+  <div style={styles.container} className="main-container">
+        <div style={styles.topBar} className="top-bar">
   <h1 style={styles.title}>📈 Stock Tracker</h1>
   <div style={styles.userBar}>
     <button style={styles.marketBtn} onClick={() => setShowMarket(true)}>📊 Market</button>
@@ -503,7 +503,7 @@ const [loadingPolitical, setLoadingPolitical] = useState(false);
           </div>
         ))}
 
-        <div style={styles.tabs}>
+        <div style={styles.tabs} className="tabs-scroll">
           <button style={{ ...styles.tab, ...(tab === "watchlist" ? styles.tabActive : {}) }} onClick={() => setTab("watchlist")}>⭐ Watchlist</button>
           <button style={{ ...styles.tab, ...(tab === "scanner" ? styles.tabActive : {}) }} onClick={() => setTab("scanner")}>🔍 Scanner</button>
           <button style={{ ...styles.tab, ...(tab === "insider" ? styles.tabActive : {}) }} onClick={() => { setTab("insider"); if (insiderFeed.length === 0) fetchInsiderFeed(); }}>🏛️ Insider</button>

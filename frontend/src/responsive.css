@@ -1,0 +1,90 @@
+/* Hide scrollbar but keep scrolling */
+.tabs-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 0.75rem !important;
+  }
+
+  .top-bar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .top-bar h1 {
+    font-size: 1.4rem !important;
+  }
+
+  .tabs-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.4rem;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-bottom: 1rem;
+  }
+
+  .tabs-scroll button {
+    flex-shrink: 0;
+    padding: 0.5rem 0.7rem !important;
+    font-size: 0.78rem !important;
+    white-space: nowrap;
+  }
+
+  .watch-item {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .watch-right {
+    gap: 0.5rem !important;
+  }
+
+  .stats-row {
+    flex-wrap: wrap;
+  }
+
+  .card-header {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .price-block {
+    text-align: left !important;
+  }
+
+  .scan-header {
+    flex-direction: column;
+    gap: 0.75rem;
+    align-items: flex-start !important;
+  }
+
+  .period-row {
+    flex-wrap: wrap;
+  }
+
+  .filter-row-wrap {
+    flex-wrap: wrap;
+  }
+}
+
+/* Desktop styles — widen the layout */
+@media (min-width: 1024px) {
+  .app-container {
+    padding: 2rem 2rem !important;
+  }
+
+  .main-container {
+    max-width: 1000px !important;
+  }
+}
+
+@media (min-width: 1400px) {
+  .main-container {
+    max-width: 1200px !important;
+  }
+}
