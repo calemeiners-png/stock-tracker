@@ -720,6 +720,76 @@ def send_alert_email(data: dict):
             """,
         }
 
+
+@app.get("/political-news")
+def political_news():
+    """
+    Fetch news specifically about political statements
+    that could impact individual stocks or sectors.
+    """
+    try:
+        # Search for political market-moving news
+        keywords = [
+            "Trump stock", "Trump invest", "Trump buy", "Trump company",
+            "White House investment", "administration deal", "executive order market",
+            "President praise", "Trump billion", "Trump million dollar",
+        ]
+
+        all_articles = []
+        seen_urls = set()
+
+        for keyword in keywords[:5]:  # limit to avoid rate limiting
+            try:
+                url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_API_KEY}"
+                res = requests.get(url, timeout=10)
+                data = res.json()
+
+                for item in data[:30]:
+                    headline = item.get("headline", "").lower()
+                    summary = item.get("summary", "").lower()
+                    article_url = item.get("url", "")
+
+                    # Filter for political + market relevant content
+                    political_terms = ["trump", "white house", "president", "administration", "congress", "senate"]
+                    market_terms = ["stock", "invest", "billion", "million", "company", "shares", "buy", "deal", "manufactur"]
+
+                    has_political = any(term in headline or term in summary for term in political_terms)
+                    has_market = any(term in headline or term in summary for term in market_terms)
+
+                    if has_political and has_market and article_url not in seen_urls:
+                        seen_urls.add(article_url)
+
+                        # Try to detect which stocks are mentioned
+                        mentioned_tickers = []
+                        full_text = headline + " " + summary
+                        for ticker, name in NAMES.items():
+                            company_words = name.lower().split()
+                            main_word = company_words[0] if company_words else ""
+                            if (ticker.lower() in full_text or
+                                (len(main_word) > 3 and main_word in full_text)):
+                                mentioned_tickers.append(ticker)
+
+                        all_articles.append({
+                            "headline": item.get("headline", ""),
+                            "summary": item.get("summary", "")[:300],
+                            "source": item.get("source", ""),
+                            "url": article_url,
+                            "image": item.get("image", ""),
+                            "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y %I:%M %p"),
+                            "mentioned_tickers": mentioned_tickers[:5],
+                        })
+            except Exception:
+                continue
+
+        # Sort by most recent
+        all_articles.sort(key=lambda x: x["datetime"], reverse=True)
+
+        # Remove duplicates and return top 20
+        return {"articles": all_articles[:20], "updated": datetime.now().isoformat()}
+
+    except Exception as e:
+        return {"articles": [], "updated": datetime.now().isoformat()}
+
         email_response = resend.Emails.send(params)
         return {"success": True, "id": email_response.get("id")}
     except Exception as e:
