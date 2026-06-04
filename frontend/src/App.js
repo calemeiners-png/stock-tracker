@@ -136,6 +136,8 @@ function App() {
   const [loadingWeek52, setLoadingWeek52] = useState(false);
   const [gainersLosers, setGainersLosers] = useState({});
   const [loadingGL, setLoadingGL] = useState(false);
+  const [marketNews, setMarketNews] = useState([]);
+  const [loadingNews2, setLoadingNews2] = useState(false);
   const [watchlist, setWatchlist] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState([]);
@@ -337,6 +339,18 @@ function App() {
     setLoadingGL(false);
   };
 
+  const fetchMarketNews = async () => {
+    setLoadingNews2(true);
+    try {
+      const res = await fetch(`${API}/market-news`);
+      const data = await res.json();
+      setMarketNews(data.articles || []);
+    } catch (e) {
+      setMarketNews([]);
+    }
+    setLoadingNews2(false);
+  };
+
   const scanMarket = async () => {
     setScanning(true);
     try {
@@ -462,6 +476,7 @@ function App() {
           <button style={{ ...styles.tab, ...(tab === "insider" ? styles.tabActive : {}) }} onClick={() => { setTab("insider"); if (insiderFeed.length === 0) fetchInsiderFeed(); }}>🏛️ Insider</button>
           <button style={{ ...styles.tab, ...(tab === "week52" ? styles.tabActive : {}) }} onClick={() => { setTab("week52"); if (week52Data.near_highs === undefined) fetchWeek52(); }}>📅 52-Week</button>
           <button style={{ ...styles.tab, ...(tab === "gainers" ? styles.tabActive : {}) }} onClick={() => { setTab("gainers"); if (!gainersLosers.gainers) fetchGainersLosers(); }}>🏆 Gainers</button>
+          <button style={{ ...styles.tab, ...(tab === "news" ? styles.tabActive : {}) }} onClick={() => { setTab("news"); if (marketNews.length === 0) fetchMarketNews(); }}>📰 News</button>
           <button style={{ ...styles.tab, ...(tab === "alerts" ? styles.tabActive : {}) }} onClick={() => setTab("alerts")}>
             🔔 Alerts {alerts.length > 0 && <span style={styles.badge}>{alerts.length}</span>}
           </button>
@@ -886,6 +901,44 @@ function App() {
             )}
           </div>
         )}
+{/* MARKET NEWS TAB */}
+        {tab === "news" && (
+          <div>
+            <div style={styles.scanHeader}>
+              <div>
+                <p style={styles.scanInfo}>Latest <strong style={{ color: "#f1f5f9" }}>market news</strong> from Reuters and CNBC</p>
+              </div>
+              <button style={styles.button} onClick={fetchMarketNews} disabled={loadingNews2}>
+                {loadingNews2 ? "Loading..." : "🔄 Refresh"}
+              </button>
+            </div>
+
+            {loadingNews2 && <div style={styles.scanning}>⏳ Loading market news...</div>}
+
+            {!loadingNews2 && marketNews.length === 0 && (
+              <div style={styles.empty}>Click Refresh to load the latest market news.</div>
+            )}
+
+            {marketNews.length > 0 && (
+              <div>
+                {marketNews.map((article, i) => (
+                  <a key={i} href={article.url} target="_blank" rel="noreferrer" style={styles.newsCard}>
+                    <div style={styles.newsCardContent}>
+                      <div style={styles.newsCardSource}>{article.source} · {article.datetime}</div>
+                      <div style={styles.newsCardHeadline}>{article.headline}</div>
+                      {article.summary && (
+                        <div style={styles.newsCardSummary}>{article.summary}</div>
+                      )}
+                    </div>
+                    {article.image && (
+                      <img src={article.image} alt="" style={styles.newsCardImage} onError={(e) => e.target.style.display = "none"} />
+                    )}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
                 {/* ALERTS TAB */}
         {tab === "alerts" && (
           <div>
@@ -997,6 +1050,12 @@ const styles = {
   insiderRight: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" },
   insiderShares: { color: "#94a3b8", fontSize: "0.85rem" },
   insiderBadge: { padding: "2px 8px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: "700" },
+  newsCard: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", padding: "1rem", background: "#1e293b", borderRadius: "12px", marginBottom: "0.75rem", textDecoration: "none", border: "1px solid #334155", cursor: "pointer" },
+  newsCardContent: { flex: 1 },
+  newsCardSource: { color: "#64748b", fontSize: "0.75rem", marginBottom: "4px" },
+  newsCardHeadline: { color: "#f1f5f9", fontSize: "0.95rem", fontWeight: "600", lineHeight: "1.4", marginBottom: "6px" },
+  newsCardSummary: { color: "#94a3b8", fontSize: "0.82rem", lineHeight: "1.5" },
+  newsCardImage: { width: "80px", height: "80px", borderRadius: "8px", objectFit: "cover", flexShrink: 0 },
 };
 
 export default App;
