@@ -794,3 +794,52 @@ def political_news():
         return {"success": True, "id": email_response.get("id")}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+@app.get("/political-news")
+def political_news():
+    try:
+        url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_API_KEY}"
+        res = requests.get(url, timeout=10)
+        data = res.json()
+
+        all_articles = []
+        seen_urls = set()
+
+        political_terms = ["trump", "white house", "president", "administration", "congress", "senate"]
+        market_terms = ["stock", "invest", "billion", "million", "company", "shares", "buy", "deal", "manufactur"]
+
+        for item in data[:50]:
+            headline = item.get("headline", "").lower()
+            summary = item.get("summary", "").lower()
+            article_url = item.get("url", "")
+
+            has_political = any(term in headline or term in summary for term in political_terms)
+            has_market = any(term in headline or term in summary for term in market_terms)
+
+            if has_political and has_market and article_url not in seen_urls:
+                seen_urls.add(article_url)
+
+                mentioned_tickers = []
+                full_text = headline + " " + summary
+                for ticker, name in NAMES.items():
+                    company_words = name.lower().split()
+                    main_word = company_words[0] if company_words else ""
+                    if (ticker.lower() in full_text or
+                            (len(main_word) > 3 and main_word in full_text)):
+                        mentioned_tickers.append(ticker)
+
+                all_articles.append({
+                    "headline": item.get("headline", ""),
+                    "summary": item.get("summary", "")[:300],
+                    "source": item.get("source", ""),
+                    "url": article_url,
+                    "image": item.get("image", ""),
+                    "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y %I:%M %p"),
+                    "mentioned_tickers": mentioned_tickers[:5],
+                })
+
+        all_articles.sort(key=lambda x: x["datetime"], reverse=True)
+        return {"articles": all_articles[:20], "updated": datetime.now().isoformat()}
+
+    except Exception as e:
+        return {"articles": [], "updated": datetime.now().isoformat()}
