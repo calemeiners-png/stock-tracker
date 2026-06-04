@@ -135,6 +135,7 @@ function App() {
   const [week52Data, setWeek52Data] = useState({});
   const [loadingWeek52, setLoadingWeek52] = useState(false);
   const [gainersLosers, setGainersLosers] = useState({});
+  const [glPeriod, setGlPeriod] = useState("1d");
   const [loadingGL, setLoadingGL] = useState(false);
   const [marketNews, setMarketNews] = useState([]);
   const [loadingNews2, setLoadingNews2] = useState(false);
@@ -343,10 +344,11 @@ function App() {
     setLoadingWeek52(false);
   };
 
-  const fetchGainersLosers = async () => {
+  const fetchGainersLosers = async (period = glPeriod) => {
     setLoadingGL(true);
     try {
-      const res = await fetch(`${API}/gainers-losers`);
+      const endpoint = period === "1d" ? `${API}/gainers-losers` : `${API}/gainers-losers/${period}`;
+      const res = await fetch(endpoint);
       const data = await res.json();
       setGainersLosers(data);
     } catch (e) {
@@ -854,12 +856,22 @@ function App() {
           <div>
             <div style={styles.scanHeader}>
               <div>
-                <p style={styles.scanInfo}>Top <strong style={{ color: "#f1f5f9" }}>10 gainers</strong> and <strong style={{ color: "#f1f5f9" }}>10 losers</strong> today</p>
+                <p style={styles.scanInfo}>Top <strong style={{ color: "#f1f5f9" }}>10 gainers</strong> and <strong style={{ color: "#f1f5f9" }}>10 losers</strong></p>
                 {gainersLosers.updated && <p style={styles.scanTime}>Updated: {new Date(gainersLosers.updated).toLocaleTimeString()}</p>}
               </div>
-              <button style={styles.button} onClick={fetchGainersLosers} disabled={loadingGL}>
-                {loadingGL ? "Loading..." : "🔄 Refresh"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-end" }}>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  {[["1d","Day"],["1w","Week"],["1mo","Month"],["3mo","Quarter"],["1y","Year"]].map(([p, label]) => (
+                    <button key={p} style={{ ...styles.filterBtn, ...(glPeriod === p ? { background: "#3b82f6", color: "#fff", border: "none" } : {}) }}
+                      onClick={() => { setGlPeriod(p); fetchGainersLosers(p); }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <button style={styles.button} onClick={() => fetchGainersLosers(glPeriod)} disabled={loadingGL}>
+                  {loadingGL ? "Loading..." : "🔄 Refresh"}
+                </button>
+              </div>
             </div>
 
             {loadingGL && <div style={styles.scanning}>⏳ Loading gainers and losers...</div>}
