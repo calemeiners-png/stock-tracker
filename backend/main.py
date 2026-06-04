@@ -561,3 +561,26 @@ def gainers_losers():
         "losers": losers,
         "updated": datetime.now().isoformat(),
     }
+
+@app.get("/market-news")
+def market_news():
+    """Fetch top market news from Finnhub."""
+    try:
+        url = f"https://finnhub.io/api/v1/news?category=general&token={FINNHUB_API_KEY}"
+        res = requests.get(url, timeout=10)
+        data = res.json()
+
+        articles = []
+        for item in data[:20]:
+            articles.append({
+                "headline": item.get("headline", ""),
+                "summary": item.get("summary", "")[:300],
+                "source": item.get("source", ""),
+                "url": item.get("url", ""),
+                "image": item.get("image", ""),
+                "datetime": datetime.fromtimestamp(item.get("datetime", 0)).strftime("%b %d, %Y %I:%M %p"),
+            })
+
+        return {"articles": articles, "updated": datetime.now().isoformat()}
+    except Exception as e:
+        return {"articles": [], "updated": datetime.now().isoformat()}
