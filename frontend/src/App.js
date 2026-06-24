@@ -479,7 +479,7 @@ const [loadingPolitical, setLoadingPolitical] = useState(false);
 
   const isUp = chartData.length > 1 && chartData[chartData.length - 1].price >= chartData[0].price;
   const chartColor = isUp ? "#22c55e" : "#ef4444";
-  const periods = ["1mo", "3mo", "6mo", "1y", "2y", "5y", "10y"];
+  const periods = ["1d", "1w", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y"];
 
   if (!user) return <Auth />;
   if (showMarket) return <Market onBack={() => setShowMarket(false)} />;
