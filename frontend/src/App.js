@@ -5,7 +5,6 @@ import { supabase } from "./supabase";
 import Market from "./Market";
 
 const API = "https://stock-tracker-6acy.onrender.com";
-const isMobile = window.innerWidth <= 768;
 
 const NAMES = {
   "AAPL": "Apple Inc.", "MSFT": "Microsoft", "NVDA": "NVIDIA", "GOOGL": "Alphabet (Google)",
