@@ -273,6 +273,7 @@ def scan_market():
 def get_chart(ticker: str, period: str = "6mo"):
     try:
         period_map = {
+            "1d": "1d", "1w": "5d",
             "1mo": "1mo", "3mo": "3mo", "6mo": "6mo",
             "1y": "1y", "2y": "2y", "5y": "5y", "10y": "10y",
         }
@@ -285,6 +286,8 @@ def get_chart(ticker: str, period: str = "6mo"):
         for date, row in hist.iterrows():
             if period in ("1y", "2y", "5y", "10y"):
                 date_str = date.strftime("%b %d '%y")
+            elif period in ("1d", "1w"):
+                date_str = date.strftime("%I:%M %p") if period == "1d" else date.strftime("%a %b %d")
             else:
                 date_str = date.strftime("%b %d")
             data.append({
